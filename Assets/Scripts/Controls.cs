@@ -57,7 +57,8 @@ public class Controls : MonoBehaviour
     {
         
     }
-
+    // im 90% certain this is a terrible way to do movement direction but its 4:30+ am and I 
+    // cannot remember the correct way right now
     void ForwardActionRecieved() 
     {
         _movementDirection.x = 1;
