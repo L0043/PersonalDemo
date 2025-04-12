@@ -32,11 +32,6 @@ public class Controls : MonoBehaviour
         _jumpAction = actionMap["Jump"];
         _dashAction = actionMap["Dash"];
 
-    }
-
-
-    private void OnEnable()
-    {
         _aimAction.started += ctx => AimActionRecieved();
         _forwardAction.started += ctx => ForwardActionRecieved();
         _backwardAction.started += ctx => BackwardActionRecieved();
@@ -44,6 +39,18 @@ public class Controls : MonoBehaviour
         _rightAction.started += ctx => RightActionRecieved();
         _jumpAction.started += ctx => JumpActionRecieved();
         _dashAction.started += ctx => DashActionRecieved();
+
+        _aimAction.canceled += ctx => AimActionRecieved();
+        _forwardAction.canceled += ctx => ForwardActionEnded();
+        _backwardAction.canceled += ctx => BackwardActionEnded();
+        _leftAction.canceled += ctx => LeftActionEnded();
+        _rightAction.canceled += ctx => RightActionEnded();
+    }
+
+
+    private void OnEnable()
+    {
+        
     }
 
     void AimActionRecieved() 
@@ -71,6 +78,28 @@ public class Controls : MonoBehaviour
     {
         _movementDirection.y = -1;   
     }
+
+    void ForwardActionEnded()
+    {
+        _movementDirection.x = 0;
+
+    }
+
+    void BackwardActionEnded()
+    {
+        _movementDirection.x = 0;
+    }
+
+    void LeftActionEnded()
+    {
+        _movementDirection.y = 0;
+
+    }
+    void RightActionEnded()
+    {
+        _movementDirection.y = 0;
+    }
+
     void JumpActionRecieved() 
     {
 
@@ -97,6 +126,7 @@ public class Controls : MonoBehaviour
         if(_movementDirection != Vector2.zero)
         {
             Vector3 movement = new Vector3(_movementDirection.x, 0, _movementDirection.y);
+            movement.Normalize();
             _rigidbody.AddForce(movement * MoveSpeed, ForceMode.Impulse);
         }
         
