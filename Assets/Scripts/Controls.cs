@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -8,128 +9,94 @@ public class Controls : MonoBehaviour
 {
     [SerializeField] Rigidbody _rigidbody;
     public float MoveSpeed = 5f;
+    public float Sensitivity = 0.1f;
     Vector2 _movementDirection = new Vector2();
+    Vector2 _lookDirection = new Vector2();
+    Vector3 _wantedDir = new Vector3();
     InputAction _aimAction;
-    InputAction _forwardAction;
-    InputAction _backwardAction;
-    InputAction _leftAction;
-    InputAction _rightAction;
+    InputAction _moveAction;
     InputAction _jumpAction;
     InputAction _dashAction;
+    float _viewPitch = 0.0f;
+    float _viewYaw = 0.0f;
+    [SerializeField] Transform _cameraTransform;
+
+    void OnMoveInputRecieved(InputAction.CallbackContext context)
+    {
+        _movementDirection = context.ReadValue<Vector2>();
+    }
+
+    void OnAimInputRecieved(InputAction.CallbackContext context)
+    {
+        _lookDirection = context.ReadValue<Vector2>() * Sensitivity;
+        // Handle aim direction
+    }
+
+    void OnJumpInputRecieved(InputAction.CallbackContext context)
+    {
+        // Handle jump input
+        if (context.performed)
+        {
+            //Jump();
+            _rigidbody.AddForce(Vector3.up * 5f, ForceMode.Impulse); // Example jump force
+        }
+    }
+
+    void OnDashInputRecieved(InputAction.CallbackContext context)
+    {
+        // Handle dash input
+        if (context.performed)
+        {
+            //Dash();
+            if(_wantedDir != Vector3.zero)
+                _rigidbody.AddForce(_wantedDir * 10f, ForceMode.Impulse); // Example dash force
+            else
+                _rigidbody.AddForce(transform.forward * 10f, ForceMode.Impulse); // Example dash force
+
+        }
+    }
+
     // Start is called before the first frame update
     void Start()
     {
-        if(!_rigidbody)
+        //lock mouse to game window
+        Cursor.lockState = CursorLockMode.Locked;
+
+
+        if (!_rigidbody)
             _rigidbody = GetComponent<Rigidbody>();
-        
-        var actionMap = GetComponent<PlayerInput>().currentActionMap;
+        var inputMap = GetComponent<PlayerInput>().currentActionMap;
+        _moveAction = inputMap.FindAction("Move");
+        _aimAction = inputMap.FindAction("Look");
+        _jumpAction = inputMap.FindAction("Jump");
+        _dashAction = inputMap.FindAction("Dash");
 
-        _aimAction = actionMap["Aim"];
-        _forwardAction = actionMap["Forward"];
-        _backwardAction = actionMap["Backward"];
-        _leftAction = actionMap["Left"];
-        _rightAction = actionMap["Right"];
-        _jumpAction = actionMap["Jump"];
-        _dashAction = actionMap["Dash"];
-
-        _aimAction.started += ctx => AimActionRecieved();
-        _forwardAction.started += ctx => ForwardActionRecieved();
-        _backwardAction.started += ctx => BackwardActionRecieved();
-        _leftAction.started += ctx => LeftActionRecieved();
-        _rightAction.started += ctx => RightActionRecieved();
-        _jumpAction.started += ctx => JumpActionRecieved();
-        _dashAction.started += ctx => DashActionRecieved();
-
-        _aimAction.canceled += ctx => AimActionRecieved();
-        _forwardAction.canceled += ctx => ForwardActionEnded();
-        _backwardAction.canceled += ctx => BackwardActionEnded();
-        _leftAction.canceled += ctx => LeftActionEnded();
-        _rightAction.canceled += ctx => RightActionEnded();
+        _moveAction.performed += OnMoveInputRecieved;
+        _moveAction.canceled += OnMoveInputRecieved;
+        _aimAction.performed += OnAimInputRecieved;
+        _aimAction.canceled += OnAimInputRecieved;
+        _jumpAction.performed += OnJumpInputRecieved;
+        _dashAction.performed += OnDashInputRecieved;
     }
 
-
-    private void OnEnable()
-    {
-        
-    }
-
-    void AimActionRecieved() 
-    {
-        
-    }
-    // im 90% certain this is a terrible way to do movement direction but its 4:30+ am and I 
-    // cannot remember the correct way right now
-    void ForwardActionRecieved() 
-    {
-        _movementDirection.x = 1;
-
-    }
-
-    void BackwardActionRecieved() 
-    {
-        _movementDirection.x = -1;
-    }
-
-    void LeftActionRecieved() 
-    {
-        _movementDirection.y = 1;
-        
-    }
-    void RightActionRecieved() 
-    {
-        _movementDirection.y = -1;   
-    }
-
-    void ForwardActionEnded()
-    {
-        _movementDirection.x = 0;
-
-    }
-
-    void BackwardActionEnded()
-    {
-        _movementDirection.x = 0;
-    }
-
-    void LeftActionEnded()
-    {
-        _movementDirection.y = 0;
-
-    }
-    void RightActionEnded()
-    {
-        _movementDirection.y = 0;
-    }
-
-    void JumpActionRecieved() 
-    {
-
-        
-    }
-    void DashActionRecieved() 
-    {
-        
-    }
-    private void OnDisable()
-    {
-        _aimAction.started -= ctx => AimActionRecieved();
-        _forwardAction.started -= ctx => ForwardActionRecieved();
-        _backwardAction.started -= ctx => BackwardActionRecieved();
-        _leftAction.started -= ctx => LeftActionRecieved();
-        _rightAction.started -= ctx => RightActionRecieved();
-        _jumpAction.started -= ctx => JumpActionRecieved();
-        _dashAction.started -= ctx => DashActionRecieved();
-    }
-
-    // Update is called once per frame
+   
     void Update()
     {
-        if(_movementDirection != Vector2.zero)
-        {
-            Vector3 movement = new Vector3(_movementDirection.x, 0, _movementDirection.y);
-            movement.Normalize();
-            _rigidbody.AddForce(movement * MoveSpeed, ForceMode.Impulse);
-        }
-        
+        // MOVEMENT
+        _wantedDir = transform.forward * _movementDirection.y + transform.right * _movementDirection.x;
+        if (_wantedDir != Vector3.zero)
+            _rigidbody.AddForce(_wantedDir * MoveSpeed, ForceMode.Force);
+
+
+        // CAMERA
+        _viewPitch = Mathf.Clamp(_viewPitch - _lookDirection.y, -80.0f, 70.0f);
+        _viewYaw += _lookDirection.x;
+       
+        //rotate around
+        transform.rotation = Quaternion.Euler(0, _viewYaw, 0);
+        // aim up and down
+        _cameraTransform.localRotation = Quaternion.Euler(_viewPitch,0f, 0f);
+
+
     }
 }
