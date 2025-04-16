@@ -10,6 +10,11 @@ public class Controls : MonoBehaviour
     [SerializeField] Rigidbody _rigidbody;
     public float MoveSpeed = 5f;
     public float Sensitivity = 0.1f;
+    public float JumpForce = 5f;
+    public float DashForce = 10f;
+
+
+    [SerializeField] Transform _cameraTransform;
     Vector2 _movementDirection = new Vector2();
     Vector2 _lookDirection = new Vector2();
     Vector3 _wantedDir = new Vector3();
@@ -19,7 +24,7 @@ public class Controls : MonoBehaviour
     InputAction _dashAction;
     float _viewPitch = 0.0f;
     float _viewYaw = 0.0f;
-    [SerializeField] Transform _cameraTransform;
+    bool _onGround = true;
 
     void OnMoveInputRecieved(InputAction.CallbackContext context)
     {
@@ -34,11 +39,13 @@ public class Controls : MonoBehaviour
 
     void OnJumpInputRecieved(InputAction.CallbackContext context)
     {
+        if (!_onGround)
+            return;
         // Handle jump input
         if (context.performed)
         {
             //Jump();
-            _rigidbody.AddForce(Vector3.up * 5f, ForceMode.Impulse); // Example jump force
+            _rigidbody.AddForce(transform.up * JumpForce, ForceMode.Impulse); // Example jump force
         }
     }
 
@@ -49,9 +56,9 @@ public class Controls : MonoBehaviour
         {
             //Dash();
             if(_wantedDir != Vector3.zero)
-                _rigidbody.AddForce(_wantedDir * 10f, ForceMode.Impulse); // Example dash force
+                _rigidbody.AddForce(_wantedDir * DashForce, ForceMode.Impulse); // Example dash force
             else
-                _rigidbody.AddForce(transform.forward * 10f, ForceMode.Impulse); // Example dash force
+                _rigidbody.AddForce(transform.forward * DashForce, ForceMode.Impulse); // Example dash force
 
         }
     }
@@ -84,8 +91,38 @@ public class Controls : MonoBehaviour
     {
         // MOVEMENT
         _wantedDir = transform.forward * _movementDirection.y + transform.right * _movementDirection.x;
-        if (_wantedDir != Vector3.zero)
-            _rigidbody.AddForce(_wantedDir * MoveSpeed, ForceMode.Force);
+        Debug.Log(_rigidbody.velocity.magnitude);
+
+        
+        Debug.LogWarning(_wantedDir);
+        Vector3 moveForce = _wantedDir * MoveSpeed;
+
+        if (_onGround)
+        {
+            if (_wantedDir != Vector3.zero)
+                _rigidbody.AddForce(moveForce, ForceMode.Force);
+
+            // limit the velocity gained from input to a certain value
+            if (_rigidbody.velocity.magnitude > MoveSpeed)
+            {
+                _rigidbody.velocity = _rigidbody.velocity.normalized * MoveSpeed;
+            }
+        }
+        else 
+        {
+            if (_wantedDir != Vector3.zero)
+            {
+                //reduce the force from inputs while in air to prevent gliding
+                moveForce = _wantedDir * MoveSpeed * 0.1f;
+                _rigidbody.AddForce(moveForce, ForceMode.Force);
+            }
+            // limit the velocity gained from input to a certain value
+            if (_rigidbody.velocity.magnitude > MoveSpeed * 1.1f)
+            {
+                _rigidbody.velocity = _rigidbody.velocity.normalized * MoveSpeed * 1.1f;
+            }
+
+        }
 
 
         // CAMERA
@@ -99,4 +136,59 @@ public class Controls : MonoBehaviour
 
 
     }
+
+    private void OnCollisionEnter(Collision collision)
+    {
+        var mask = LayerMask.NameToLayer("Environment");
+
+        if (collision.gameObject.layer != mask)
+            return;
+
+        if (collision.contacts.Length > 0)
+        {
+            // Check if the contact point is below the player
+            foreach (ContactPoint contact in collision.contacts)
+            {
+                if (Vector3.Dot(contact.normal, Vector3.up) > 0.5f)
+                {
+                    _onGround = true;
+                    return;
+                }
+            }
+        }
+    }
+
+    private void OnCollisionStay(Collision collision)
+    {
+        // unless something else is added to this function,
+        // there is no need to waste performance checking for collisions
+        if (_onGround)
+            return;
+
+        var mask = LayerMask.NameToLayer("Environment");
+
+        if (collision.gameObject.layer != mask)
+            return;
+
+        if (collision.contacts.Length > 0)
+        {
+            // Check if the contact point is below the player
+            foreach (ContactPoint contact in collision.contacts)
+            {
+                if (Vector3.Dot(contact.normal, Vector3.up) > 0.5f)
+                {
+                    _onGround = true;
+                    return;
+                }
+            }
+        }
+    }
+
+    private void OnCollisionExit(Collision collision)
+    {
+        if (collision.gameObject.layer != LayerMask.NameToLayer("Environment"))
+            return;
+        _onGround = false;
+    }
+
 }
