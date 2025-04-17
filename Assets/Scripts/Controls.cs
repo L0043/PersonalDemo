@@ -153,10 +153,14 @@ public class Controls : MonoBehaviour
         // Handle slam input
         if (context.performed)
         {
-            _rigidbody.velocity = Vector3.zero;
-            //Slam();
-            _rigidbody.AddForce(Vector3.down * SlamForce * 1000f, ForceMode.Impulse);
+            Slam();
         }
+    }
+
+    void Slam() 
+    {
+        _rigidbody.velocity = Vector3.zero;
+        _rigidbody.AddForce(Vector3.down * SlamForce * 1000f, ForceMode.Impulse);
     }
 
     void OnTeleportInputRecieved(InputAction.CallbackContext context)
@@ -171,8 +175,12 @@ public class Controls : MonoBehaviour
     void Teleport() 
     {
         // Teleport the player to a random position within a certain range
-        Vector3 teleportPosition = _cameraTransform.forward * 10f;
+        // Change velocity to be in direction of teleport aiming
+
+        Vector3 teleportPosition = transform.position + _cameraTransform.forward * 10f;
         transform.position = teleportPosition;
+
+        _rigidbody.velocity = Vector3.Project(_rigidbody.velocity, transform.position + _cameraTransform.forward);
 
     }
 
