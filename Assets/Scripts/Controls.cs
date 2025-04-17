@@ -9,6 +9,7 @@ using static UnityEditor.Timeline.TimelinePlaybackControls;
 public class Controls : MonoBehaviour
 {
     [SerializeField] Rigidbody _rigidbody;
+    [SerializeField] CapsuleCollider _collider;
     public float MoveSpeed = 5f;
     public float AirMoveSpeed = 5f;
     public float MoveSpeedLimit = 15f;
@@ -59,6 +60,9 @@ public class Controls : MonoBehaviour
 
         if (!_rigidbody)
             _rigidbody = GetComponent<Rigidbody>();
+        if(!_collider)
+            _collider = GetComponent<CapsuleCollider>();
+
         var inputMap = GetComponent<PlayerInput>().currentActionMap;
         _moveAction = inputMap.FindAction("Move");
         _aimAction = inputMap.FindAction("Look");
@@ -231,19 +235,72 @@ public class Controls : MonoBehaviour
         // Handle teleport input
         if (context.performed)
         {
-
             Teleport();
             // on teleport event could be called here, not sure what would be done though
         }
     }
 
+    // teleport through the object, if the point will be inside the object, teleport to the nearest point on the outside of the object
+    // NOTE: FOR VFX, THE Object could be made transparent while the player is trying to teleport and to point at which they are teleporting to is shown
+    // The teleport will need to be changed to a press and hold system, probably using tap, on start reduce the timescale and release, bring back to 1
     void Teleport()
     {
 
         _teleportTimer = TeleportCooldown;
         _isSlamming = false;
-        Vector3 teleportPosition = transform.position + _cameraTransform.forward * TeleportDistance;
+
+        Vector3 teleportPosition = Vector3.zero;
+        teleportPosition = transform.position + _cameraTransform.forward * TeleportDistance;
+
+        #region Teleport Positioning
+        //do not teleport if object cannot be teleported through
+        RaycastHit hit;
+        GameObject objectHit = null;
+        Collider objectCollider = null;
+        // if it hits something, check if it can be teleported through
+        if (Physics.Raycast(transform.position, _cameraTransform.forward, out hit, TeleportDistance, LayerMask.GetMask("Environment"), QueryTriggerInteraction.Ignore))
+        {
+            objectHit = hit.collider.gameObject;
+            objectCollider = objectHit.GetComponent<Collider>();
+        }
+
+        if (objectHit) 
+        {
+            // check if the player can teleport through it or not
+            // if the tag is not teleportable, teleport in front of it
+            if (objectHit.CompareTag("Teleportable") == false)
+            {
+                // teleport to the outside of the object including the player collider radius so the player is not inside the object
+                teleportPosition = hit.point + hit.normal * _collider.radius;
+            }
+            // is tagged teleportable
+            else 
+            {
+                // teleport to the outside of the object including the player collider radius so the player is not inside the object
+                if (objectCollider.bounds.Contains(teleportPosition)) 
+                {
+                    Vector3 direction = Vector3.zero;
+                    float distance = 0f;
+
+                    // finds the nearest point on the outside of the collider and how far away it is, if those are found the colliders are seperated
+                    Physics.ComputePenetration(_collider, teleportPosition, transform.rotation, objectCollider,
+                        objectCollider.transform.position, objectCollider.transform.rotation, out direction, out distance);
+                    
+                    teleportPosition += direction * distance;
+                    
+                    //// find the closest point on the outside of the collider
+                    //Vector3 newPos = objectCollider.ClosestPoint(teleportPosition);
+                    //teleportPosition = newPos;
+                }
+            }
+        }
+        #endregion
+
         transform.position = teleportPosition;
+
+
+
+        #region Velocity
 
         // set the velocity to be in the direction of the camera, reduce the velocity by a factor if the player is moving downwards
         float dot = Vector3.Dot(_rigidbody.velocity.normalized, Vector3.down);
@@ -251,10 +308,7 @@ public class Controls : MonoBehaviour
             _rigidbody.velocity = _cameraTransform.forward * _rigidbody.velocity.magnitude * DownwardTeleportVelocityReduction;
         else
             _rigidbody.velocity = _cameraTransform.forward * _rigidbody.velocity.magnitude;
-        //if (_rigidbody.velocity.magnitude < 0f)
-        //    _rigidbody.velocity = _cameraTransform.forward * _rigidbody.velocity.magnitude * DownwardTeleportVelocityReduction;
-        //else
-        //    _rigidbody.velocity = _cameraTransform.forward * _rigidbody.velocity.magnitude;
+        #endregion
 
     }
 
@@ -324,6 +378,10 @@ public class Controls : MonoBehaviour
         Gizmos.DrawLine(transform.position, transform.position + dir.normalized * 7.5f);
         Gizmos.color = Color.green;
         Gizmos.DrawLine(transform.position, transform.position + _rigidbody.velocity.normalized * 10f);
+        Gizmos.color = Color.yellow;
+        Vector3 teleportPosition = Vector3.zero;
+        teleportPosition = transform.position + _cameraTransform.forward * TeleportDistance;
+        Gizmos.DrawSphere(teleportPosition, 0.1f);
     }
 
 }
