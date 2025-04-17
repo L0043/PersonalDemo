@@ -270,8 +270,20 @@ public class Controls : MonoBehaviour
             // if the tag is not teleportable, teleport in front of it
             if (objectHit.CompareTag("Teleportable") == false)
             {
-                // teleport to the outside of the object including the player collider radius so the player is not inside the object
-                teleportPosition = hit.point + hit.normal * _collider.radius;
+                // add radius if collision is from the side, add height if above or below
+                float dotproduct = Vector3.Dot(hit.normal, Vector3.up);
+                // if the object is above or below the player, teleport to the point of impact
+                if (dotproduct > 0.5f || dotproduct < -0.5f)
+                    teleportPosition = hit.point + hit.normal * _collider.height / 2f;
+                // if the object is to the side of the player, teleport to the point of impact
+                else
+                    // add the radius to the teleport position so the player is not inside the object
+                    teleportPosition = hit.point + hit.normal * _collider.radius;
+                    
+
+
+
+
             }
             // is tagged teleportable
             else 
