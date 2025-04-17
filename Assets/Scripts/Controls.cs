@@ -9,23 +9,107 @@ public class Controls : MonoBehaviour
 {
     [SerializeField] Rigidbody _rigidbody;
     public float MoveSpeed = 5f;
+    public float AirMoveSpeed = 5f;
+    public float MoveSpeedLimit = 15f;
     public float Sensitivity = 0.1f;
     public float JumpForce = 5f;
+    public float SlamForce = 5f;
     public float DashForce = 10f;
+    public float AirMoveInputContraint = 0.1f;
+    public float AirSpeedLimitMultiplier = 1.1f;
 
 
     [SerializeField] Transform _cameraTransform;
     Vector2 _movementDirection = new Vector2();
     Vector2 _lookDirection = new Vector2();
     Vector3 _wantedDir = new Vector3();
+    Vector3 _airDirection = new Vector3();
     InputAction _aimAction;
     InputAction _moveAction;
     InputAction _jumpAction;
     InputAction _dashAction;
+    InputAction _slamAction;
+    InputAction _teleportAction;
     float _viewPitch = 0.0f;
     float _viewYaw = 0.0f;
-    bool _onGround = true;
+    bool _onGround = false;
 
+    // Start is called before the first frame update
+    void Start()
+    {
+        //lock mouse to game window
+        Cursor.lockState = CursorLockMode.Locked;
+
+
+        if (!_rigidbody)
+            _rigidbody = GetComponent<Rigidbody>();
+        var inputMap = GetComponent<PlayerInput>().currentActionMap;
+        _moveAction = inputMap.FindAction("Move");
+        _aimAction = inputMap.FindAction("Look");
+        _jumpAction = inputMap.FindAction("Jump");
+        _dashAction = inputMap.FindAction("Dash");
+        _slamAction = inputMap.FindAction("Slam");
+        _teleportAction = inputMap.FindAction("Teleport");
+
+        _moveAction.performed += OnMoveInputRecieved;
+        _moveAction.canceled += OnMoveInputRecieved;
+        _aimAction.performed += OnAimInputRecieved;
+        _aimAction.canceled += OnAimInputRecieved;
+        _jumpAction.performed += OnJumpInputRecieved;
+        _dashAction.performed += OnDashInputRecieved;
+        _slamAction.performed += OnSlamInputRecieved;
+        _teleportAction.performed += OnTeleportInputRecieved;
+    }
+
+   
+    void FixedUpdate()
+    {
+        // MOVEMENT
+        _wantedDir = transform.forward * _movementDirection.y + transform.right * _movementDirection.x;
+
+        if (_onGround)
+        {
+            _rigidbody.velocity = new Vector3(_wantedDir.x * MoveSpeed * Time.fixedDeltaTime, _rigidbody.velocity.y, _wantedDir.z * MoveSpeed * Time.fixedDeltaTime);
+        }
+        else 
+        {
+            Vector3 movementDirection = new Vector3(_wantedDir.x * MoveSpeed * Time.fixedDeltaTime, _rigidbody.velocity.y, _wantedDir.z * MoveSpeed * Time.fixedDeltaTime);
+            _airDirection.y = 0f;
+            // movedir > 0 and velocity < movedir or movedir < 0 and velocity > movedir
+            // if the player is moving in the air, we want to apply a force in the direction of the movement
+            // but only if the player is not already moving in that direction
+
+            if ((movementDirection.x > 0f && _rigidbody.velocity.x < movementDirection.x) || (movementDirection.x < 0f && _rigidbody.velocity.x > movementDirection.x))
+            {
+                _airDirection.x = movementDirection.x;
+            }
+            else
+            {
+                _airDirection.x = 0f;
+            }
+            if ((movementDirection.z > 0f && _rigidbody.velocity.z < movementDirection.z) || (movementDirection.z < 0f && _rigidbody.velocity.z > movementDirection.z))
+            {
+                _airDirection.z = movementDirection.z;
+            }
+            else
+            {
+                _airDirection.z = 0f;
+            }
+            _rigidbody.AddForce(_airDirection.normalized * AirMoveSpeed * Time.fixedDeltaTime);
+        }
+    }
+
+    private void Update()
+    {
+        // CAMERA
+        _viewPitch = Mathf.Clamp(_viewPitch - _lookDirection.y, -80.0f, 70.0f);
+        _viewYaw += _lookDirection.x;
+
+        //rotate around
+        transform.rotation = Quaternion.Euler(0, _viewYaw, 0);
+        // aim up and down
+        _cameraTransform.localRotation = Quaternion.Euler(_viewPitch, 0f, 0f);
+    }
     void OnMoveInputRecieved(InputAction.CallbackContext context)
     {
         _movementDirection = context.ReadValue<Vector2>();
@@ -45,7 +129,8 @@ public class Controls : MonoBehaviour
         if (context.performed)
         {
             //Jump();
-            _rigidbody.AddForce(transform.up * JumpForce, ForceMode.Impulse); // Example jump force
+            _rigidbody.velocity = new Vector3(_rigidbody.velocity.x, 0f, _rigidbody.velocity.z);
+            _rigidbody.AddForce(Vector3.up * JumpForce * 1000f);
         }
     }
 
@@ -55,86 +140,36 @@ public class Controls : MonoBehaviour
         if (context.performed)
         {
             //Dash();
-            if(_wantedDir != Vector3.zero)
-                _rigidbody.AddForce(_wantedDir * DashForce, ForceMode.Impulse); // Example dash force
+            if (_wantedDir != Vector3.zero)
+                _rigidbody.AddForce(_wantedDir * DashForce, ForceMode.VelocityChange); // Example dash force
             else
-                _rigidbody.AddForce(transform.forward * DashForce, ForceMode.Impulse); // Example dash force
+                _rigidbody.AddForce(transform.forward * DashForce, ForceMode.VelocityChange); // Example dash force
 
         }
     }
 
-    // Start is called before the first frame update
-    void Start()
+    void OnSlamInputRecieved(InputAction.CallbackContext context)
     {
-        //lock mouse to game window
-        Cursor.lockState = CursorLockMode.Locked;
-
-
-        if (!_rigidbody)
-            _rigidbody = GetComponent<Rigidbody>();
-        var inputMap = GetComponent<PlayerInput>().currentActionMap;
-        _moveAction = inputMap.FindAction("Move");
-        _aimAction = inputMap.FindAction("Look");
-        _jumpAction = inputMap.FindAction("Jump");
-        _dashAction = inputMap.FindAction("Dash");
-
-        _moveAction.performed += OnMoveInputRecieved;
-        _moveAction.canceled += OnMoveInputRecieved;
-        _aimAction.performed += OnAimInputRecieved;
-        _aimAction.canceled += OnAimInputRecieved;
-        _jumpAction.performed += OnJumpInputRecieved;
-        _dashAction.performed += OnDashInputRecieved;
+        // Handle slam input
+        if (context.performed)
+        {
+            _rigidbody.velocity = Vector3.zero;
+            //Slam();
+            _rigidbody.AddForce(Vector3.down * SlamForce * 1000f, ForceMode.Impulse);
+        }
     }
 
-   
-    void Update()
+    void OnTeleportInputRecieved(InputAction.CallbackContext context)
     {
-        // MOVEMENT
-        _wantedDir = transform.forward * _movementDirection.y + transform.right * _movementDirection.x;
-        Debug.Log(_rigidbody.velocity.magnitude);
-
-        
-        Debug.LogWarning(_wantedDir);
-        Vector3 moveForce = _wantedDir * MoveSpeed;
-
-        if (_onGround)
+        // Handle teleport input
+        if (context.performed)
         {
-            if (_wantedDir != Vector3.zero)
-                _rigidbody.AddForce(moveForce, ForceMode.Force);
-
-            // limit the velocity gained from input to a certain value
-            if (_rigidbody.velocity.magnitude > MoveSpeed)
-            {
-                _rigidbody.velocity = _rigidbody.velocity.normalized * MoveSpeed;
-            }
+            //Teleport();
+            // Example teleportation logic
+            Vector3 teleportDirection = _cameraTransform.forward;
+            teleportDirection.y = 0f; // Keep the teleportation on the same plane
+            transform.position += teleportDirection * 5f; // Teleport 5 units forward
         }
-        else 
-        {
-            if (_wantedDir != Vector3.zero)
-            {
-                //reduce the force from inputs while in air to prevent gliding
-                moveForce = _wantedDir * MoveSpeed * 0.1f;
-                _rigidbody.AddForce(moveForce, ForceMode.Force);
-            }
-            // limit the velocity gained from input to a certain value
-            if (_rigidbody.velocity.magnitude > MoveSpeed * 1.1f)
-            {
-                _rigidbody.velocity = _rigidbody.velocity.normalized * MoveSpeed * 1.1f;
-            }
-
-        }
-
-
-        // CAMERA
-        _viewPitch = Mathf.Clamp(_viewPitch - _lookDirection.y, -80.0f, 70.0f);
-        _viewYaw += _lookDirection.x;
-       
-        //rotate around
-        transform.rotation = Quaternion.Euler(0, _viewYaw, 0);
-        // aim up and down
-        _cameraTransform.localRotation = Quaternion.Euler(_viewPitch,0f, 0f);
-
-
     }
 
     private void OnCollisionEnter(Collision collision)
@@ -164,12 +199,12 @@ public class Controls : MonoBehaviour
         // there is no need to waste performance checking for collisions
         if (_onGround)
             return;
-
+        
         var mask = LayerMask.NameToLayer("Environment");
-
+        
         if (collision.gameObject.layer != mask)
             return;
-
+        
         if (collision.contacts.Length > 0)
         {
             // Check if the contact point is below the player
