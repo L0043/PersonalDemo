@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using static UnityEditor.Timeline.TimelinePlaybackControls;
 
 [RequireComponent(typeof(Rigidbody)), RequireComponent(typeof(PlayerInput))]
 public class Controls : MonoBehaviour
@@ -12,11 +13,26 @@ public class Controls : MonoBehaviour
     public float AirMoveSpeed = 5f;
     public float MoveSpeedLimit = 15f;
     public float Sensitivity = 0.1f;
-    public float JumpForce = 5f;
-    public float SlamForce = 5f;
+    public float JumpForce = 5000f;
     public float DashForce = 10f;
     public float AirMoveInputContraint = 0.1f;
     public float AirSpeedLimitMultiplier = 1.1f;
+
+    [Space]
+    [Header("Slam")]
+    public float SlamForce = 5000f;
+    bool _isSlamming = false;
+
+
+    [Space]
+    [Header("Teleport Variables")]
+    public float TeleportCooldown = 2f;
+    public float TeleportDistance = 10f;
+    public float DownwardTeleportVelocityReduction = 0.1f;
+    [Tooltip("used as part of a dot product check to determine at what downward velocity angle the velocity reduction will take place")]
+    [SerializeField] float _downTeleportReductionThreshold = 0.5f;
+    float _teleportTimer = 0.0f;
+    [Space]
 
 
     [SerializeField] Transform _cameraTransform;
@@ -51,6 +67,7 @@ public class Controls : MonoBehaviour
         _slamAction = inputMap.FindAction("Slam");
         _teleportAction = inputMap.FindAction("Teleport");
 
+        _moveAction.started += OnMoveInputRecieved;
         _moveAction.performed += OnMoveInputRecieved;
         _moveAction.canceled += OnMoveInputRecieved;
         _aimAction.performed += OnAimInputRecieved;
@@ -105,14 +122,33 @@ public class Controls : MonoBehaviour
         _viewPitch = Mathf.Clamp(_viewPitch - _lookDirection.y, -80.0f, 70.0f);
         _viewYaw += _lookDirection.x;
 
+        if(_viewYaw >= 360f)
+            _viewYaw -= 360f;
+        else if (_viewYaw < 0f)
+            _viewYaw += 360f;
+
         //rotate around
         transform.rotation = Quaternion.Euler(0, _viewYaw, 0);
         // aim up and down
         _cameraTransform.localRotation = Quaternion.Euler(_viewPitch, 0f, 0f);
+
+        if(_teleportTimer >= 0.0f)
+            _teleportTimer -= Time.deltaTime;
+
+        // allow immediate movement after slamming
+        if (_moveAction.IsInProgress() && !_isSlamming) 
+        {
+            // Call the moveinput received function
+            _movementDirection = _moveAction.ReadValue<Vector2>();
+
+        }
+
     }
     void OnMoveInputRecieved(InputAction.CallbackContext context)
     {
-        _movementDirection = context.ReadValue<Vector2>();
+        // lock the player to slamming downwards, this can be canceled by any other ability being used however
+        if(!_isSlamming)
+            _movementDirection = context.ReadValue<Vector2>();
     }
 
     void OnAimInputRecieved(InputAction.CallbackContext context)
@@ -128,10 +164,14 @@ public class Controls : MonoBehaviour
         // Handle jump input
         if (context.performed)
         {
-            //Jump();
-            _rigidbody.velocity = new Vector3(_rigidbody.velocity.x, 0f, _rigidbody.velocity.z);
-            _rigidbody.AddForce(Vector3.up * JumpForce * 1000f);
+            Jump();
         }
+    }
+
+    void Jump() 
+    {
+        _rigidbody.velocity = new Vector3(_rigidbody.velocity.x, 0f, _rigidbody.velocity.z);
+        _rigidbody.AddForce(Vector3.up * JumpForce);
     }
 
     void OnDashInputRecieved(InputAction.CallbackContext context)
@@ -139,13 +179,20 @@ public class Controls : MonoBehaviour
         // Handle dash input
         if (context.performed)
         {
-            //Dash();
-            if (_wantedDir != Vector3.zero)
-                _rigidbody.AddForce(_wantedDir * DashForce, ForceMode.VelocityChange); // Example dash force
-            else
-                _rigidbody.AddForce(transform.forward * DashForce, ForceMode.VelocityChange); // Example dash force
+            Dash();
 
         }
+    }
+
+    void Dash()
+    {
+        // stop all velocity, then add force in the direction of movement
+        _rigidbody.velocity = Vector3.zero;
+        _isSlamming = false;
+        if (_wantedDir != Vector3.zero)
+            _rigidbody.AddForce(_wantedDir * DashForce, ForceMode.VelocityChange);
+        else
+            _rigidbody.AddForce(transform.forward * DashForce, ForceMode.VelocityChange);
     }
 
     void OnSlamInputRecieved(InputAction.CallbackContext context)
@@ -153,34 +200,61 @@ public class Controls : MonoBehaviour
         // Handle slam input
         if (context.performed)
         {
-            Slam();
+            if (!_onGround)
+                Slam();
+            else
+                Slide();
         }
     }
 
     void Slam() 
     {
         _rigidbody.velocity = Vector3.zero;
-        _rigidbody.AddForce(Vector3.down * SlamForce * 1000f, ForceMode.Impulse);
+        _rigidbody.AddForce(Vector3.down * SlamForce);
+        _isSlamming = true;
+    }
+
+    void Slide() 
+    {
+        // bring the player closer to the ground and bump move speed
+
     }
 
     void OnTeleportInputRecieved(InputAction.CallbackContext context)
     {
+        if (_teleportTimer >= 0f)
+        {
+            // give audio/visual indicator that teleport is on cooldown with ui element flash
+            // perhaps a vignette as well
+            return;
+        }
         // Handle teleport input
         if (context.performed)
         {
+
             Teleport();
+            // on teleport event could be called here, not sure what would be done though
         }
     }
 
-    void Teleport() 
+    void Teleport()
     {
-        // Teleport the player to a random position within a certain range
-        // Change velocity to be in direction of teleport aiming
 
-        Vector3 teleportPosition = transform.position + _cameraTransform.forward * 10f;
+        _teleportTimer = TeleportCooldown;
+        _isSlamming = false;
+        Vector3 teleportPosition = transform.position + _cameraTransform.forward * TeleportDistance;
         transform.position = teleportPosition;
 
-        _rigidbody.velocity = Vector3.Project(_rigidbody.velocity, transform.position + _cameraTransform.forward);
+        // set the velocity to be in the direction of the camera, reduce the velocity by a factor if the player is moving downwards
+        float dot = Vector3.Dot(_rigidbody.velocity.normalized, Vector3.down);
+        if (dot > _downTeleportReductionThreshold)
+            _rigidbody.velocity = _cameraTransform.forward * _rigidbody.velocity.magnitude * DownwardTeleportVelocityReduction;
+        else
+            _rigidbody.velocity = _cameraTransform.forward * _rigidbody.velocity.magnitude;
+        //if (_rigidbody.velocity.magnitude < 0f)
+        //    _rigidbody.velocity = _cameraTransform.forward * _rigidbody.velocity.magnitude * DownwardTeleportVelocityReduction;
+        //else
+        //    _rigidbody.velocity = _cameraTransform.forward * _rigidbody.velocity.magnitude;
 
     }
 
@@ -199,6 +273,7 @@ public class Controls : MonoBehaviour
                 if (Vector3.Dot(contact.normal, Vector3.up) > 0.5f)
                 {
                     _onGround = true;
+                    _isSlamming = false;
                     return;
                 }
             }
@@ -225,6 +300,7 @@ public class Controls : MonoBehaviour
                 if (Vector3.Dot(contact.normal, Vector3.up) > 0.5f)
                 {
                     _onGround = true;
+                    _isSlamming = false;
                     return;
                 }
             }
@@ -236,6 +312,18 @@ public class Controls : MonoBehaviour
         if (collision.gameObject.layer != LayerMask.NameToLayer("Environment"))
             return;
         _onGround = false;
+    }
+
+
+    private void OnDrawGizmos()
+    {
+        Gizmos.color = Color.red;
+        Gizmos.DrawLine(transform.position, transform.position + _cameraTransform.forward * 5f);
+        Gizmos.color = Color.blue;
+        Vector3 dir = _cameraTransform.forward * _rigidbody.velocity.magnitude;
+        Gizmos.DrawLine(transform.position, transform.position + dir.normalized * 7.5f);
+        Gizmos.color = Color.green;
+        Gizmos.DrawLine(transform.position, transform.position + _rigidbody.velocity.normalized * 10f);
     }
 
 }

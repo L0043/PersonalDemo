@@ -663,11 +663,15 @@ MonoBehaviour:
   AirMoveSpeed: 3000
   MoveSpeedLimit: 15
   Sensitivity: 1
-  JumpForce: 5
-  SlamForce: 5
-  DashForce: 10
+  JumpForce: 5000
+  DashForce: 100
   AirMoveInputContraint: 0.1
   AirSpeedLimitMultiplier: 1.1
+  SlamForce: 5000
+  TeleportCooldown: 2
+  TeleportDistance: 10
+  DownwardTeleportVelocityReduction: 0.1
+  _downTeleportReductionThreshold: 0.75
   _cameraTransform: {fileID: 963194228}
 --- !u!54 &1916178396
 Rigidbody:
