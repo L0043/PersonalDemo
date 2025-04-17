@@ -164,12 +164,16 @@ public class Controls : MonoBehaviour
         // Handle teleport input
         if (context.performed)
         {
-            //Teleport();
-            // Example teleportation logic
-            Vector3 teleportDirection = _cameraTransform.forward;
-            teleportDirection.y = 0f; // Keep the teleportation on the same plane
-            transform.position += teleportDirection * 5f; // Teleport 5 units forward
+            Teleport();
         }
+    }
+
+    void Teleport() 
+    {
+        // Teleport the player to a random position within a certain range
+        Vector3 teleportPosition = _cameraTransform.forward * 10f;
+        transform.position = teleportPosition;
+
     }
 
     private void OnCollisionEnter(Collision collision)
