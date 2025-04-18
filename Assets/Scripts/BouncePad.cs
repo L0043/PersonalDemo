@@ -18,6 +18,9 @@ public class BouncePad : MonoBehaviour
                 {
                     // launch that hoe
                     var rb = collision.gameObject.GetComponent<Rigidbody>();
+                    if (!rb)
+                        return;
+                    rb.velocity = Vector3.zero;
                     rb.AddForce(transform.up * BounceForce, ForceMode.Impulse);
                 }
             }

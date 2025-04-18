@@ -12,18 +12,32 @@ public class Controls : MonoBehaviour
     [SerializeField] CapsuleCollider _collider;
     public float MoveSpeed = 5f;
     public float AirMoveSpeed = 5f;
-    public float MoveSpeedLimit = 15f;
     public float Sensitivity = 0.1f;
+
+    [Space]
+    [Header("Jump")]
     public float JumpForce = 5000f;
+    GameObject _lastTouchedWall = null;
+    bool _onWall = false;
+    bool _wallJumpAvailable = false;
+
+    [Space]
+    [Header("Dash")]
     public float DashForce = 10f;
-    public float AirMoveInputContraint = 0.1f;
-    public float AirSpeedLimitMultiplier = 1.1f;
+    public float DashTime = 2f;
+    float _dashTimer = 0.0f;
+    bool _isDashing;
 
     [Space]
     [Header("Slam")]
     public float SlamForce = 5000f;
     bool _isSlamming = false;
 
+    [Space]
+    [Header("Slide")]
+    public float SlideSpeedMultiplier = 1.25f;
+    bool _isSliding = false;
+    bool _slideContextCanceled = false;
 
     [Space]
     [Header("Teleport Variables")]
@@ -49,12 +63,9 @@ public class Controls : MonoBehaviour
     InputAction _slamAction;
     InputAction _teleportAction;
 
-    GameObject _lastTouchedWall = null;
     float _viewPitch = 0.0f;
     float _viewYaw = 0.0f;
     bool _onGround = false;
-    bool _onWall = false;
-    bool _wallJumpAvailable = false;
 
     // Start is called before the first frame update
     void Start()
@@ -83,7 +94,9 @@ public class Controls : MonoBehaviour
         _aimAction.canceled += OnAimInputRecieved;
         _jumpAction.performed += OnJumpInputRecieved;
         _dashAction.performed += OnDashInputRecieved;
+        _slamAction.started += OnSlamInputRecieved;
         _slamAction.performed += OnSlamInputRecieved;
+        _slamAction.canceled += OnSlamInputRecieved;
         _teleportAction.performed += OnTeleportInputRecieved;
     }
 
@@ -95,7 +108,8 @@ public class Controls : MonoBehaviour
 
         if (_onGround)
         {
-            _rigidbody.velocity = new Vector3(_wantedDir.x * MoveSpeed * Time.fixedDeltaTime, _rigidbody.velocity.y, _wantedDir.z * MoveSpeed * Time.fixedDeltaTime);
+            if(!_isDashing && !_isSliding)
+                _rigidbody.velocity = new Vector3(_wantedDir.x * MoveSpeed * Time.fixedDeltaTime, _rigidbody.velocity.y, _wantedDir.z * MoveSpeed * Time.fixedDeltaTime);
         }
         else 
         {
@@ -164,6 +178,13 @@ public class Controls : MonoBehaviour
             _rigidbody.drag = 0f;
         }
 
+        if (_isDashing) 
+        {
+            _dashTimer -= Time.deltaTime;
+            if (_dashTimer <= 0f)
+                _isDashing = false;
+        }
+
     }
     void OnMoveInputRecieved(InputAction.CallbackContext context)
     {
@@ -195,7 +216,7 @@ public class Controls : MonoBehaviour
     void Jump() 
     {
         
-        if (_onWall)
+        if (_onWall && !_onGround)
         {
             _wallJumpAvailable = false;
             float dot = Vector3.Dot(_cameraTransform.forward, transform.up);
@@ -211,7 +232,7 @@ public class Controls : MonoBehaviour
                 _rigidbody.AddForce(Vector3.up * JumpForce * 1.25f);
             }
         }
-        else 
+        else
         {
             _rigidbody.velocity = new Vector3(_rigidbody.velocity.x, 0f, _rigidbody.velocity.z);
             _rigidbody.AddForce(Vector3.up * JumpForce);
@@ -236,17 +257,27 @@ public class Controls : MonoBehaviour
             _rigidbody.AddForce(_wantedDir * DashForce, ForceMode.Impulse);
         else
             _rigidbody.AddForce(transform.forward * DashForce, ForceMode.Impulse);
+        _isDashing = true;
+        _dashTimer = DashTime;
     }
 
     void OnSlamInputRecieved(InputAction.CallbackContext context)
     {
-        // Handle slam input
-        if (context.performed)
+        // Handle slam and slide input
+        // if the player is not on the ground, allow them to slam, if on ground the player slides
+        // if the slide ends in the air, do not slam
+
+
+        if (context.performed || context.started)
         {
-            if (!_onGround)
+            if (!_onGround && !_isSliding)
                 Slam();
-            else
+            else if(!_isSliding)
                 Slide();
+        }
+        else if (context.canceled)
+        {
+            SlideEnd();
         }
     }
 
@@ -257,10 +288,18 @@ public class Controls : MonoBehaviour
         _isSlamming = true;
     }
 
+    void SlideEnd() 
+    {
+        _isSliding = false;
+    }
+
     void Slide() 
     {
+        Vector3 slideDirection = Vector3.Project(_cameraTransform.forward,transform.forward);
+        slideDirection.Normalize();
         // bring the player closer to the ground and bump move speed
-
+        _rigidbody.velocity = slideDirection * MoveSpeed * SlideSpeedMultiplier * Time.fixedDeltaTime;
+        _isSliding = true;
     }
 
     void OnTeleportInputRecieved(InputAction.CallbackContext context)
@@ -380,9 +419,11 @@ public class Controls : MonoBehaviour
                 }
                 // check if the object is perpendicular to the player
                 float wallDot = Vector3.Dot(contact.normal, Vector3.up);
-                BoxCollider box = collision.collider as BoxCollider;
-                if (wallDot < 0.76f && wallDot > -0.76f && box)
+                if (wallDot < 0.76f && wallDot > -0.76f)
                 {
+                    BoxCollider box = collision.collider as BoxCollider;
+                    if (!box)
+                        return;
                     _onWall = true;
                     // refresh jump here unless last touched wall has changed
                     if (_lastTouchedWall == collision.gameObject)
@@ -391,9 +432,6 @@ public class Controls : MonoBehaviour
                     _lastTouchedWall = collision.gameObject;
                     _wallJumpAvailable = true;
                 }
-
-
-
             }
         }
     }
@@ -409,17 +447,33 @@ public class Controls : MonoBehaviour
         
         if (collision.gameObject.layer != mask)
             return;
-        
+
         if (collision.contacts.Length > 0)
         {
             // Check if the contact point is below the player
             foreach (ContactPoint contact in collision.contacts)
             {
-                if (Vector3.Dot(contact.normal, Vector3.up) > 0.5f)
+
+                if (Vector3.Dot(contact.normal, Vector3.up) > 0.8f)
                 {
                     _onGround = true;
                     _isSlamming = false;
-                    return;
+                }
+                // check if the object is perpendicular to the player
+                float wallDot = Vector3.Dot(contact.normal, Vector3.up);
+                if (wallDot < 0.76f && wallDot > -0.76f)
+                {
+                BoxCollider box = collision.collider as BoxCollider;
+                    if (!box)
+                        return;
+
+                    _onWall = true;
+                    // refresh jump here unless last touched wall has changed
+                    if (_lastTouchedWall == collision.gameObject)
+                        // do vfx stuff here
+                        return;
+                    _lastTouchedWall = collision.gameObject;
+                    _wallJumpAvailable = true;
                 }
             }
         }
@@ -429,15 +483,15 @@ public class Controls : MonoBehaviour
     {
         if (collision.gameObject.layer != LayerMask.NameToLayer("Environment"))
             return;
+        if (_onWall)
+        {
+            _onWall = false;
+        }
         if (_onGround)
         {
             _onGround = false;
             _isSlamming = false;
             _lastTouchedWall = null;
-        }
-        if (_onWall)
-        {
-            _onWall = false;
         }
 
     }
