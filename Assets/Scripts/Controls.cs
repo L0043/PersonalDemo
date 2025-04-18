@@ -41,15 +41,20 @@ public class Controls : MonoBehaviour
     Vector2 _lookDirection = new Vector2();
     Vector3 _wantedDir = new Vector3();
     Vector3 _airDirection = new Vector3();
+
     InputAction _aimAction;
     InputAction _moveAction;
     InputAction _jumpAction;
     InputAction _dashAction;
     InputAction _slamAction;
     InputAction _teleportAction;
+
+    GameObject _lastTouchedWall = null;
     float _viewPitch = 0.0f;
     float _viewYaw = 0.0f;
     bool _onGround = false;
+    bool _onWall = false;
+    bool _wallJumpAvailable = false;
 
     // Start is called before the first frame update
     void Start()
@@ -144,7 +149,19 @@ public class Controls : MonoBehaviour
         {
             // Call the moveinput received function
             _movementDirection = _moveAction.ReadValue<Vector2>();
+        }
 
+        // increase the players drag if they are not moving on a wall
+        float dot = Vector3.Dot(transform.up, _rigidbody.velocity.normalized);
+        // if velocity is downwards, set drag to 5
+
+        if (_onWall && _movementDirection == Vector2.zero && dot < -0.8f)
+        {
+            _rigidbody.drag = 5f;
+        }
+        else
+        {
+            _rigidbody.drag = 0f;
         }
 
     }
@@ -163,8 +180,11 @@ public class Controls : MonoBehaviour
 
     void OnJumpInputRecieved(InputAction.CallbackContext context)
     {
-        if (!_onGround)
+        if (!_onGround && !_onWall)
             return;
+        if (_onWall && !_wallJumpAvailable)
+            return;
+
         // Handle jump input
         if (context.performed)
         {
@@ -174,8 +194,28 @@ public class Controls : MonoBehaviour
 
     void Jump() 
     {
-        _rigidbody.velocity = new Vector3(_rigidbody.velocity.x, 0f, _rigidbody.velocity.z);
-        _rigidbody.AddForce(Vector3.up * JumpForce);
+        
+        if (_onWall)
+        {
+            _wallJumpAvailable = false;
+            float dot = Vector3.Dot(_cameraTransform.forward, transform.up);
+            //force the drag to be 0 while the player is jumping so their jump is not affected
+            _rigidbody.drag = 0f;
+            // if the camera is looking 50% above the horizontal plane, jump in the direction of the camera
+            if (dot >= 0f)
+            {
+                _rigidbody.AddForce(_cameraTransform.forward * JumpForce * 2f);
+            }
+            else
+            {
+                _rigidbody.AddForce(Vector3.up * JumpForce * 1.25f);
+            }
+        }
+        else 
+        {
+            _rigidbody.velocity = new Vector3(_rigidbody.velocity.x, 0f, _rigidbody.velocity.z);
+            _rigidbody.AddForce(Vector3.up * JumpForce);
+        }
     }
 
     void OnDashInputRecieved(InputAction.CallbackContext context)
@@ -184,7 +224,6 @@ public class Controls : MonoBehaviour
         if (context.performed)
         {
             Dash();
-
         }
     }
 
@@ -194,9 +233,9 @@ public class Controls : MonoBehaviour
         _rigidbody.velocity = Vector3.zero;
         _isSlamming = false;
         if (_wantedDir != Vector3.zero)
-            _rigidbody.AddForce(_wantedDir * DashForce, ForceMode.VelocityChange);
+            _rigidbody.AddForce(_wantedDir * DashForce, ForceMode.Impulse);
         else
-            _rigidbody.AddForce(transform.forward * DashForce, ForceMode.VelocityChange);
+            _rigidbody.AddForce(transform.forward * DashForce, ForceMode.Impulse);
     }
 
     void OnSlamInputRecieved(InputAction.CallbackContext context)
@@ -258,7 +297,8 @@ public class Controls : MonoBehaviour
         GameObject objectHit = null;
         Collider objectCollider = null;
         // if it hits something, check if it can be teleported through
-        if (Physics.Raycast(transform.position, _cameraTransform.forward, out hit, TeleportDistance, LayerMask.GetMask("Environment"), QueryTriggerInteraction.Ignore))
+        var mask = LayerMask.GetMask("Environment", "Default");
+        if (Physics.Raycast(transform.position, _cameraTransform.forward, out hit, TeleportDistance, mask, QueryTriggerInteraction.Ignore))
         {
             objectHit = hit.collider.gameObject;
             objectCollider = objectHit.GetComponent<Collider>();
@@ -279,10 +319,6 @@ public class Controls : MonoBehaviour
                 else
                     // add the radius to the teleport position so the player is not inside the object
                     teleportPosition = hit.point + hit.normal * _collider.radius;
-                    
-
-
-
 
             }
             // is tagged teleportable
@@ -336,12 +372,28 @@ public class Controls : MonoBehaviour
             // Check if the contact point is below the player
             foreach (ContactPoint contact in collision.contacts)
             {
-                if (Vector3.Dot(contact.normal, Vector3.up) > 0.5f)
+
+                if (Vector3.Dot(contact.normal, Vector3.up) > 0.8f)
                 {
                     _onGround = true;
                     _isSlamming = false;
-                    return;
                 }
+                // check if the object is perpendicular to the player
+                float wallDot = Vector3.Dot(contact.normal, Vector3.up);
+                BoxCollider box = collision.collider as BoxCollider;
+                if (wallDot < 0.76f && wallDot > -0.76f && box)
+                {
+                    _onWall = true;
+                    // refresh jump here unless last touched wall has changed
+                    if (_lastTouchedWall == collision.gameObject)
+                        // do vfx stuff here
+                        return;
+                    _lastTouchedWall = collision.gameObject;
+                    _wallJumpAvailable = true;
+                }
+
+
+
             }
         }
     }
@@ -377,7 +429,17 @@ public class Controls : MonoBehaviour
     {
         if (collision.gameObject.layer != LayerMask.NameToLayer("Environment"))
             return;
-        _onGround = false;
+        if (_onGround)
+        {
+            _onGround = false;
+            _isSlamming = false;
+            _lastTouchedWall = null;
+        }
+        if (_onWall)
+        {
+            _onWall = false;
+        }
+
     }
 
 
