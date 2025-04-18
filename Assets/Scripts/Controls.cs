@@ -141,6 +141,7 @@ public class Controls : MonoBehaviour
 
     private void Update()
     {
+        Debug.Log(_rigidbody.velocity);
         // CAMERA
         _viewPitch = Mathf.Clamp(_viewPitch - _lookDirection.y, -80.0f, 70.0f);
         _viewYaw += _lookDirection.x;
@@ -181,8 +182,11 @@ public class Controls : MonoBehaviour
         if (_isDashing) 
         {
             _dashTimer -= Time.deltaTime;
-            if (_dashTimer <= 0f)
+            if (_dashTimer <= 0f) 
+            { 
                 _isDashing = false;
+                _rigidbody.velocity = _rigidbody.velocity.normalized * _rigidbody.velocity.magnitude * 0.33f;
+            }
         }
 
     }
@@ -253,10 +257,13 @@ public class Controls : MonoBehaviour
         // stop all velocity, then add force in the direction of movement
         _rigidbody.velocity = Vector3.zero;
         _isSlamming = false;
+
+        float dashForce = DashForce;
+
         if (_wantedDir != Vector3.zero)
-            _rigidbody.AddForce(_wantedDir * DashForce, ForceMode.Impulse);
+            _rigidbody.AddForce(_wantedDir * dashForce, ForceMode.Impulse);
         else
-            _rigidbody.AddForce(transform.forward * DashForce, ForceMode.Impulse);
+            _rigidbody.AddForce(transform.forward * dashForce, ForceMode.Impulse);
         _isDashing = true;
         _dashTimer = DashTime;
     }
