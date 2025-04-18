@@ -24,8 +24,10 @@ public class Controls : MonoBehaviour
     [Space]
     [Header("Dash")]
     public float DashForce = 10f;
+    public float DashCooldown = 1f;
     public float DashTime = 2f;
     float _dashTimer = 0.0f;
+    float _dashCooldownTimer = 0.0f;
     bool _isDashing;
 
     [Space]
@@ -37,7 +39,6 @@ public class Controls : MonoBehaviour
     [Header("Slide")]
     public float SlideSpeedMultiplier = 1.25f;
     bool _isSliding = false;
-    bool _slideContextCanceled = false;
 
     [Space]
     [Header("Teleport Variables")]
@@ -64,6 +65,7 @@ public class Controls : MonoBehaviour
     InputAction _teleportAction;
 
     float _viewPitch = 0.0f;
+    float _previousLookAngle = 0.0f;
     float _viewYaw = 0.0f;
     bool _onGround = false;
 
@@ -141,9 +143,8 @@ public class Controls : MonoBehaviour
 
     private void Update()
     {
-        Debug.Log(_rigidbody.velocity);
         // CAMERA
-        _viewPitch = Mathf.Clamp(_viewPitch - _lookDirection.y, -80.0f, 70.0f);
+        _viewPitch = Mathf.Clamp(_viewPitch - _lookDirection.y, -89.0f, 89.0f);
         _viewYaw += _lookDirection.x;
 
         if(_viewYaw >= 360f)
@@ -152,12 +153,15 @@ public class Controls : MonoBehaviour
             _viewYaw += 360f;
 
         //rotate around
-        transform.rotation = Quaternion.Euler(0, _viewYaw, 0);
+        transform.rotation = Quaternion.Euler(transform.rotation.eulerAngles.x, _viewYaw, transform.rotation.eulerAngles.z);
         // aim up and down
         _cameraTransform.localRotation = Quaternion.Euler(_viewPitch, 0f, 0f);
 
         if(_teleportTimer >= 0.0f)
             _teleportTimer -= Time.deltaTime;
+        if(_dashCooldownTimer >= 0f)
+            _dashCooldownTimer -= Time.deltaTime;
+
 
         // allow immediate movement after slamming
         if (_moveAction.IsInProgress() && !_isSlamming) 
@@ -185,7 +189,6 @@ public class Controls : MonoBehaviour
             if (_dashTimer <= 0f) 
             { 
                 _isDashing = false;
-                _rigidbody.velocity = _rigidbody.velocity.normalized * _rigidbody.velocity.magnitude * 0.33f;
             }
         }
 
@@ -245,6 +248,11 @@ public class Controls : MonoBehaviour
 
     void OnDashInputRecieved(InputAction.CallbackContext context)
     {
+        if (_dashCooldownTimer >= 0f)
+        { 
+            return;
+        }
+
         // Handle dash input
         if (context.performed)
         {
@@ -264,6 +272,7 @@ public class Controls : MonoBehaviour
             _rigidbody.AddForce(_wantedDir * dashForce, ForceMode.Impulse);
         else
             _rigidbody.AddForce(transform.forward * dashForce, ForceMode.Impulse);
+        _dashCooldownTimer = DashCooldown;
         _isDashing = true;
         _dashTimer = DashTime;
     }
@@ -284,7 +293,8 @@ public class Controls : MonoBehaviour
         }
         else if (context.canceled)
         {
-            SlideEnd();
+            if(_isSliding)
+                SlideEnd();
         }
     }
 
@@ -298,15 +308,23 @@ public class Controls : MonoBehaviour
     void SlideEnd() 
     {
         _isSliding = false;
+        transform.localRotation = Quaternion.Euler(0f, transform.rotation.eulerAngles.y, transform.rotation.eulerAngles.z);
+        _viewPitch -= 85.75f;
     }
 
     void Slide() 
     {
+
+
         Vector3 slideDirection = Vector3.Project(_cameraTransform.forward,transform.forward);
         slideDirection.Normalize();
         // bring the player closer to the ground and bump move speed
         _rigidbody.velocity = slideDirection * MoveSpeed * SlideSpeedMultiplier * Time.fixedDeltaTime;
         _isSliding = true;
+
+        //rotate the player to be closer to the ground based on the forward direction the body is facing
+        transform.localRotation = Quaternion.Euler(-85.75f, transform.rotation.eulerAngles.y, transform.rotation.eulerAngles.z);
+        _viewPitch += 85.75f;
     }
 
     void OnTeleportInputRecieved(InputAction.CallbackContext context)

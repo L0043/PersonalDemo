@@ -81,14 +81,13 @@ MonoBehaviour:
   _collider: {fileID: 2481358059553735645}
   MoveSpeed: 1875
   AirMoveSpeed: 5000
-  MoveSpeedLimit: 15
-  Sensitivity: 1
+  Sensitivity: 0.25
   JumpForce: 5000
   DashForce: 750
-  AirMoveInputContraint: 0.1
-  AirSpeedLimitMultiplier: 1.1
+  DashCooldown: 1
   DashTime: 0.25
   SlamForce: 20000
+  SlideSpeedMultiplier: 1.25
   TeleportCooldown: 2
   TeleportDistance: 10
   DownwardTeleportVelocityReduction: 0.1
