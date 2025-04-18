@@ -56,6 +56,7 @@ public class Controls : MonoBehaviour
     Vector2 _lookDirection = new Vector2();
     Vector3 _wantedDir = new Vector3();
     Vector3 _airDirection = new Vector3();
+    Vector3 _wallNormal = new Vector3();
 
     InputAction _aimAction;
     InputAction _moveAction;
@@ -68,13 +69,14 @@ public class Controls : MonoBehaviour
     float _previousLookAngle = 0.0f;
     float _viewYaw = 0.0f;
     bool _onGround = false;
+    bool _isWallRunning = false;
 
     // Start is called before the first frame update
     void Start()
     {
         //lock mouse to game window
         Cursor.lockState = CursorLockMode.Locked;
-
+        _viewYaw = transform.rotation.eulerAngles.y;
 
         if (!_rigidbody)
             _rigidbody = GetComponent<Rigidbody>();
@@ -113,7 +115,7 @@ public class Controls : MonoBehaviour
             if(!_isDashing && !_isSliding)
                 _rigidbody.velocity = new Vector3(_wantedDir.x * MoveSpeed * Time.fixedDeltaTime, _rigidbody.velocity.y, _wantedDir.z * MoveSpeed * Time.fixedDeltaTime);
         }
-        else 
+        else if(!_onGround && !_isWallRunning)
         {
             Vector3 movementDirection = new Vector3(_wantedDir.x * MoveSpeed * Time.fixedDeltaTime, _rigidbody.velocity.y, _wantedDir.z * MoveSpeed * Time.fixedDeltaTime);
             _airDirection.y = 0f;
@@ -138,6 +140,14 @@ public class Controls : MonoBehaviour
                 _airDirection.z = 0f;
             }
             _rigidbody.AddForce(_airDirection.normalized * AirMoveSpeed * Time.fixedDeltaTime);
+        }
+        else if (_isWallRunning) 
+        {
+            if (!_isDashing && !_isSliding) 
+            {
+                Vector3 newDirection = Vector3.ProjectOnPlane(_wantedDir, _wallNormal);
+                _rigidbody.velocity = new Vector3(newDirection.x * MoveSpeed * Time.fixedDeltaTime, 0f, newDirection.z * MoveSpeed * Time.fixedDeltaTime) * 2f;
+            }
         }
     }
 
@@ -226,6 +236,7 @@ public class Controls : MonoBehaviour
         if (_onWall && !_onGround)
         {
             _wallJumpAvailable = false;
+            _isWallRunning = false;
             float dot = Vector3.Dot(_cameraTransform.forward, transform.up);
             //force the drag to be 0 while the player is jumping so their jump is not affected
             _rigidbody.drag = 0f;
@@ -450,12 +461,19 @@ public class Controls : MonoBehaviour
                     if (!box)
                         return;
                     _onWall = true;
+                    if (_movementDirection != Vector2.zero && _onGround == false)
+                    {
+                        _isWallRunning = true;
+                        _wallNormal = contact.normal;
+                    }
                     // refresh jump here unless last touched wall has changed
-                    if (_lastTouchedWall == collision.gameObject)
-                        // do vfx stuff here
-                        return;
-                    _lastTouchedWall = collision.gameObject;
-                    _wallJumpAvailable = true;
+                    if (_lastTouchedWall != collision.gameObject)
+                    // do vfx stuff here
+                    {
+                        _lastTouchedWall = collision.gameObject;
+                        _wallJumpAvailable = true;
+                        // toggle wall running here
+                    }
                 }
             }
         }
@@ -493,6 +511,10 @@ public class Controls : MonoBehaviour
                         return;
 
                     _onWall = true;
+
+                    if(_movementDirection == Vector2.zero)
+                        _isWallRunning = false;
+
                     // refresh jump here unless last touched wall has changed
                     if (_lastTouchedWall == collision.gameObject)
                         // do vfx stuff here
@@ -511,6 +533,8 @@ public class Controls : MonoBehaviour
         if (_onWall)
         {
             _onWall = false;
+            _isWallRunning = false;
+            _wallNormal = Vector3.zero;
         }
         if (_onGround)
         {
@@ -531,6 +555,9 @@ public class Controls : MonoBehaviour
         Gizmos.DrawLine(transform.position, transform.position + dir.normalized * 7.5f);
         Gizmos.color = Color.green;
         Gizmos.DrawLine(transform.position, transform.position + _rigidbody.velocity.normalized * 10f);
+        Gizmos.color = Color.black;
+        Vector3 newDirection = Vector3.ProjectOnPlane(_wantedDir, _wallNormal);
+        Gizmos.DrawLine(transform.position, transform.position + newDirection.normalized * 10f);
         Gizmos.color = Color.yellow;
         Vector3 teleportPosition = Vector3.zero;
         teleportPosition = transform.position + _cameraTransform.forward * TeleportDistance;
