@@ -66,7 +66,6 @@ public class Controls : MonoBehaviour
     InputAction _teleportAction;
 
     float _viewPitch = 0.0f;
-    float _previousLookAngle = 0.0f;
     float _viewYaw = 0.0f;
     bool _onGround = false;
     bool _isWallRunning = false;
@@ -143,10 +142,16 @@ public class Controls : MonoBehaviour
         }
         else if (_isWallRunning) 
         {
+            // suggestion from ripleys aquarium: add modifiers to wall running velocity retention based on the angle the player touches the wall at
+            // the closer to parralel they are, the more velocity they retain
+            // my idea: make the wall running only happen if the player is holding a button (perhaps space?)
+            // Add a pendulum grappling hook please
+            // 
             if (!_isDashing && !_isSliding) 
             {
                 Vector3 newDirection = Vector3.ProjectOnPlane(_wantedDir, _wallNormal);
-                _rigidbody.velocity = new Vector3(newDirection.x * MoveSpeed * Time.fixedDeltaTime, 0f, newDirection.z * MoveSpeed * Time.fixedDeltaTime) * 2f;
+                // on the wall the player should not fall and the y velocity should be 0, keep the current x and z velocity
+                _rigidbody.velocity = new Vector3(newDirection.x * MoveSpeed * Time.fixedDeltaTime, 0f, newDirection.z * MoveSpeed * Time.fixedDeltaTime);
             }
         }
     }
@@ -325,9 +330,13 @@ public class Controls : MonoBehaviour
 
     void Slide() 
     {
+        Vector3 slideDirection = Vector3.zero;
+        if (_movementDirection == Vector2.zero)
+            slideDirection = Vector3.Project(_cameraTransform.forward, transform.forward);
+        else
+            slideDirection = _wantedDir.normalized;
 
 
-        Vector3 slideDirection = Vector3.Project(_cameraTransform.forward,transform.forward);
         slideDirection.Normalize();
         // bring the player closer to the ground and bump move speed
         _rigidbody.velocity = slideDirection * MoveSpeed * SlideSpeedMultiplier * Time.fixedDeltaTime;
@@ -548,16 +557,6 @@ public class Controls : MonoBehaviour
 
     private void OnDrawGizmos()
     {
-        Gizmos.color = Color.red;
-        Gizmos.DrawLine(transform.position, transform.position + _cameraTransform.forward * 5f);
-        Gizmos.color = Color.blue;
-        Vector3 dir = _cameraTransform.forward * _rigidbody.velocity.magnitude;
-        Gizmos.DrawLine(transform.position, transform.position + dir.normalized * 7.5f);
-        Gizmos.color = Color.green;
-        Gizmos.DrawLine(transform.position, transform.position + _rigidbody.velocity.normalized * 10f);
-        Gizmos.color = Color.black;
-        Vector3 newDirection = Vector3.ProjectOnPlane(_wantedDir, _wallNormal);
-        Gizmos.DrawLine(transform.position, transform.position + newDirection.normalized * 10f);
         Gizmos.color = Color.yellow;
         Vector3 teleportPosition = Vector3.zero;
         teleportPosition = transform.position + _cameraTransform.forward * TeleportDistance;

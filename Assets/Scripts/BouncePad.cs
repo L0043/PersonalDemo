@@ -26,11 +26,4 @@ public class BouncePad : MonoBehaviour
             }
         }
     }
-
-    private void OnDrawGizmos()
-    {
-        Gizmos.color = Color.black;
-        Gizmos.DrawLine(transform.position, transform.position + transform.up * 10f);
-    }
-
 }
