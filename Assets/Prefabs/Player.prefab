@@ -93,7 +93,7 @@ MonoBehaviour:
   TeleportCooldown: 2
   TeleportDistance: 10
   DownwardTeleportVelocityReduction: 0.1
-  _downTeleportReductionThreshold: 0.75
+  _downTeleportReductionThreshold: 60
   _cameraTransform: {fileID: 5986227530320786860}
 --- !u!114 &9109668536524941434
 MonoBehaviour:

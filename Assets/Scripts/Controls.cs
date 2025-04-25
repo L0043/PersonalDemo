@@ -266,7 +266,7 @@ public class Controls : MonoBehaviour
             //force the drag to be 0 while the player is jumping so their jump is not affected
             _rigidbody.drag = 0f;
 
-            if(_rigidbody.velocity.y > 0f) 
+            if(_rigidbody.velocity.y < 0f) 
             {
                 Vector3 zeroedVel = _rigidbody.velocity;
                 zeroedVel.y = 0f;
@@ -439,10 +439,10 @@ public class Controls : MonoBehaviour
             {
                 // add radius if collision is from the side, add height if above or below
                 float dotproduct = Vector3.Dot(hit.normal, Vector3.up);
-                // if the object is above or below the player, teleport to the point of impact
+                // if the object is above or below the player, teleport to the point of impact adding the player height
                 if (dotproduct > 0.5f || dotproduct < -0.5f)
                     teleportPosition = hit.point + hit.normal * _collider.height / 2f;
-                // if the object is to the side of the player, teleport to the point of impact
+                // if the object is to the side of the player, teleport to the point of impact adding the player "width"
                 else
                     // add the radius to the teleport position so the player is not inside the object
                     teleportPosition = hit.point + hit.normal * _collider.radius;
@@ -479,7 +479,11 @@ public class Controls : MonoBehaviour
 
         // set the velocity to be in the direction of the camera, reduce the velocity by a factor if the player is moving downwards
         float dot = Vector3.Dot(_rigidbody.velocity.normalized, Vector3.down);
-        if (dot > _downTeleportReductionThreshold)
+        float radians = Mathf.Cos(_downTeleportReductionThreshold * Mathf.Deg2Rad);
+        // convert radians to degrees
+        float degrees = Mathf.Acos(radians) * Mathf.Rad2Deg;
+
+        if (dot > radians)
             _rigidbody.velocity = _cameraTransform.forward * _rigidbody.velocity.magnitude * DownwardTeleportVelocityReduction;
         else
             _rigidbody.velocity = _cameraTransform.forward * _rigidbody.velocity.magnitude;
