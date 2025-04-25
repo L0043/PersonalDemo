@@ -1,9 +1,18 @@
 using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics.Contracts;
 using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.InputSystem;
-using static UnityEditor.Timeline.TimelinePlaybackControls;
+
+// TO FIX:
+/*
+ * infinte corner jump
+ * fix bump launching
+ * limit dashes?
+ * sliding into jump is inconsistent
+ * velocity gets lost constantly, improve the retention
+*/
 
 [RequireComponent(typeof(Rigidbody)), RequireComponent(typeof(PlayerInput))]
 public class Controls : MonoBehaviour
@@ -17,8 +26,10 @@ public class Controls : MonoBehaviour
     [Space]
     [Header("Jump")]
     public float JumpForce = 5000f;
+    [SerializeField] float _wallAngleLimit = 30f;
     GameObject _lastTouchedWall = null;
     bool _onWall = false;
+    [Tooltip("The maximum angle the object can be at on the x or z axis to be considered a wall by the player")]
     bool _wallJumpAvailable = false;
 
     [Space]
@@ -61,6 +72,7 @@ public class Controls : MonoBehaviour
     InputAction _aimAction;
     InputAction _moveAction;
     InputAction _jumpAction;
+    InputAction _wallRunAction;
     InputAction _dashAction;
     InputAction _slamAction;
     InputAction _teleportAction;
@@ -69,6 +81,8 @@ public class Controls : MonoBehaviour
     float _viewYaw = 0.0f;
     bool _onGround = false;
     bool _isWallRunning = false;
+
+    float _viewDot = 0.0f;
 
     // Start is called before the first frame update
     void Start()
@@ -86,6 +100,7 @@ public class Controls : MonoBehaviour
         _moveAction = inputMap.FindAction("Move");
         _aimAction = inputMap.FindAction("Look");
         _jumpAction = inputMap.FindAction("Jump");
+        _wallRunAction = inputMap.FindAction("Wall Run");
         _dashAction = inputMap.FindAction("Dash");
         _slamAction = inputMap.FindAction("Slam");
         _teleportAction = inputMap.FindAction("Teleport");
@@ -96,6 +111,8 @@ public class Controls : MonoBehaviour
         _aimAction.performed += OnAimInputRecieved;
         _aimAction.canceled += OnAimInputRecieved;
         _jumpAction.performed += OnJumpInputRecieved;
+        _wallRunAction.performed += OnWallRunInputRecieved;
+        _wallRunAction.canceled += OnWallRunInputRecieved;
         _dashAction.performed += OnDashInputRecieved;
         _slamAction.started += OnSlamInputRecieved;
         _slamAction.performed += OnSlamInputRecieved;
@@ -151,7 +168,7 @@ public class Controls : MonoBehaviour
             {
                 Vector3 newDirection = Vector3.ProjectOnPlane(_wantedDir, _wallNormal);
                 // on the wall the player should not fall and the y velocity should be 0, keep the current x and z velocity
-                _rigidbody.velocity = new Vector3(newDirection.x * MoveSpeed * Time.fixedDeltaTime, 0f, newDirection.z * MoveSpeed * Time.fixedDeltaTime);
+                _rigidbody.velocity = new Vector3(newDirection.x * MoveSpeed * Time.fixedDeltaTime, _rigidbody.velocity.y, newDirection.z * MoveSpeed * Time.fixedDeltaTime);
             }
         }
     }
@@ -186,17 +203,17 @@ public class Controls : MonoBehaviour
         }
 
         // increase the players drag if they are not moving on a wall
-        float dot = Vector3.Dot(transform.up, _rigidbody.velocity.normalized);
-        // if velocity is downwards, set drag to 5
-
-        if (_onWall && _movementDirection == Vector2.zero && dot < -0.8f)
-        {
-            _rigidbody.drag = 5f;
-        }
-        else
-        {
-            _rigidbody.drag = 0f;
-        }
+        //float dot = Vector3.Dot(transform.up, _rigidbody.velocity.normalized);
+        //// if velocity is downwards, set drag to 5
+        //
+        //if (_onWall && _movementDirection == Vector2.zero && dot < -0.8f)
+        //{
+        //    _rigidbody.drag = 5f;
+        //}
+        //else
+        //{
+        //    _rigidbody.drag = 0f;
+        //}
 
         if (_isDashing) 
         {
@@ -206,7 +223,7 @@ public class Controls : MonoBehaviour
                 _isDashing = false;
             }
         }
-
+        _viewDot = Vector3.Dot(_cameraTransform.forward, Vector3.up);
     }
     void OnMoveInputRecieved(InputAction.CallbackContext context)
     {
@@ -234,7 +251,10 @@ public class Controls : MonoBehaviour
             Jump();
         }
     }
-
+    // TODO : Make Wall Running a hold interaction seperate from jumping it will toggle when the player is on a wall and holding space
+    // if the player is not moving their drag is increased and they start to fall down they will be able to move forward only,
+    // when the player releases space their drag is reset and they will no longer have 0 y velocity.
+    // when they tap space they will jump, if they tap space after releasing space they will jump off the wall and not begin to wall run
     void Jump() 
     {
         
@@ -245,10 +265,18 @@ public class Controls : MonoBehaviour
             float dot = Vector3.Dot(_cameraTransform.forward, transform.up);
             //force the drag to be 0 while the player is jumping so their jump is not affected
             _rigidbody.drag = 0f;
-            // if the camera is looking 50% above the horizontal plane, jump in the direction of the camera
-            if (dot >= 0f)
+
+            if(_rigidbody.velocity.y > 0f) 
             {
-                _rigidbody.AddForce(_cameraTransform.forward * JumpForce * 2f);
+                Vector3 zeroedVel = _rigidbody.velocity;
+                zeroedVel.y = 0f;
+                _rigidbody.velocity = zeroedVel;
+            }
+
+            // if the camera is looking 45 degrees >= above the horizontal plane, jump in the direction of the camera
+            if (dot >= 0.7f)
+            {
+                _rigidbody.AddForce(_cameraTransform.forward * JumpForce * 1.25f);
             }
             else
             {
@@ -259,6 +287,21 @@ public class Controls : MonoBehaviour
         {
             _rigidbody.velocity = new Vector3(_rigidbody.velocity.x, 0f, _rigidbody.velocity.z);
             _rigidbody.AddForce(Vector3.up * JumpForce);
+        }
+    }
+
+    void OnWallRunInputRecieved(InputAction.CallbackContext context) 
+    {
+        if (context.performed) 
+        {
+            // start checking for wall run
+            
+        }
+        else if (context.canceled) 
+        {
+            // end checking for wall run
+            _rigidbody.drag = 0f;
+            _isWallRunning = false;
         }
     }
 
@@ -463,17 +506,17 @@ public class Controls : MonoBehaviour
                     _isSlamming = false;
                 }
                 // check if the object is perpendicular to the player
-                float wallDot = Vector3.Dot(contact.normal, Vector3.up);
-                if (wallDot < 0.76f && wallDot > -0.76f)
+                if (WallCheck(_wallAngleLimit, _wallNormal))
                 {
                     BoxCollider box = collision.collider as BoxCollider;
                     if (!box)
                         return;
                     _onWall = true;
-                    if (_movementDirection != Vector2.zero && _onGround == false)
+                    if (_wallRunAction.phase == InputActionPhase.Performed && _onGround == false)
                     {
                         _isWallRunning = true;
                         _wallNormal = contact.normal;
+                        _rigidbody.drag = 5f;
                     }
                     // refresh jump here unless last touched wall has changed
                     if (_lastTouchedWall != collision.gameObject)
@@ -512,24 +555,28 @@ public class Controls : MonoBehaviour
                     _isSlamming = false;
                 }
                 // check if the object is perpendicular to the player
-                float wallDot = Vector3.Dot(contact.normal, Vector3.up);
-                if (wallDot < 0.76f && wallDot > -0.76f)
+                if (WallCheck(_wallAngleLimit, contact.normal))
                 {
                 BoxCollider box = collision.collider as BoxCollider;
                     if (!box)
                         return;
 
                     _onWall = true;
-
-                    if(_movementDirection == Vector2.zero)
-                        _isWallRunning = false;
-
-                    // refresh jump here unless last touched wall has changed
-                    if (_lastTouchedWall == collision.gameObject)
-                        // do vfx stuff here
-                        return;
-                    _lastTouchedWall = collision.gameObject;
-                    _wallJumpAvailable = true;
+                    if (_isWallRunning == false)
+                    {
+                        if (_wallRunAction.phase == InputActionPhase.Performed && _onGround == false)
+                        {
+                            _isWallRunning = true;
+                            _wallNormal = contact.normal;
+                            _rigidbody.drag = 5f;
+                        }
+                    }
+                    //// refresh jump here unless last touched wall has changed
+                    //if (_lastTouchedWall == collision.gameObject)
+                    //    // do vfx stuff here
+                    //    return;
+                    //_lastTouchedWall = collision.gameObject;
+                    //_wallJumpAvailable = true;
                 }
             }
         }
@@ -539,12 +586,7 @@ public class Controls : MonoBehaviour
     {
         if (collision.gameObject.layer != LayerMask.NameToLayer("Environment"))
             return;
-        if (_onWall)
-        {
-            _onWall = false;
-            _isWallRunning = false;
-            _wallNormal = Vector3.zero;
-        }
+        
         if (_onGround)
         {
             _onGround = false;
@@ -554,7 +596,47 @@ public class Controls : MonoBehaviour
 
     }
 
+    private void OnTriggerEnter(Collider other)
+    {
+        Physics.ComputePenetration(other, other.transform.position, other.transform.rotation, 
+            _collider, transform.position, transform.rotation, out Vector3 direction, out float distance);
+        // check if the object is perpendicular to the player
+        if (WallCheck(_wallAngleLimit, direction.normalized))
+        {
+            BoxCollider box = other as BoxCollider;
+            if (!box)
+                return;
 
+            // refresh jump here unless last touched wall has changed
+            if (_lastTouchedWall == other.gameObject)
+                // do vfx stuff here
+                return;
+            _lastTouchedWall = other.gameObject;
+            _wallJumpAvailable = true;
+        }
+    }
+
+    private void OnTriggerExit(Collider other)
+    {
+        if (_onWall)
+        {
+            _onWall = false;
+            _isWallRunning = false;
+            _wallNormal = Vector3.zero;
+        }
+    }
+
+    bool WallCheck(float degreesLimit, Vector3 normal) 
+    {
+        // take the degreesLimit and convert it to a value between -1 and 1
+        float radians = Mathf.Cos(degreesLimit * Mathf.Deg2Rad);
+         
+        float dot = Vector3.Dot(normal, Vector3.up);
+        if (dot <= radians && dot >= -radians)
+            return true;
+
+        return false;
+    }
     private void OnDrawGizmos()
     {
         Gizmos.color = Color.yellow;
