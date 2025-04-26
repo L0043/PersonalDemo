@@ -1,13 +1,15 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics.Contracts;
+using TMPro.EditorUtilities;
 using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
 // TO FIX:
 /*
- * infinte corner jump
+ * infinte corner jump - Fixed
  * fix bump launching
  * limit dashes?
  * sliding into jump is inconsistent
@@ -27,6 +29,7 @@ public class Controls : MonoBehaviour
     [Header("Jump")]
     public float JumpForce = 5000f;
     [SerializeField] float _wallAngleLimit = 30f;
+    float _groundAngleLimit = 0f;
     GameObject _lastTouchedWall = null;
     bool _onWall = false;
     [Tooltip("The maximum angle the object can be at on the x or z axis to be considered a wall by the player")]
@@ -49,6 +52,7 @@ public class Controls : MonoBehaviour
     [Space]
     [Header("Slide")]
     public float SlideSpeedMultiplier = 1.25f;
+    Vector3 _slideDirection = new Vector3();
     bool _isSliding = false;
 
     [Space]
@@ -68,6 +72,7 @@ public class Controls : MonoBehaviour
     Vector3 _wantedDir = new Vector3();
     Vector3 _airDirection = new Vector3();
     Vector3 _wallNormal = new Vector3();
+    Vector3 _groundNormal = new Vector3();
 
     InputAction _aimAction;
     InputAction _moveAction;
@@ -81,8 +86,8 @@ public class Controls : MonoBehaviour
     float _viewYaw = 0.0f;
     bool _onGround = false;
     bool _isWallRunning = false;
+    [SerializeField] LayerMask _groundLayerMask = new LayerMask();
 
-    float _viewDot = 0.0f;
 
     // Start is called before the first frame update
     void Start()
@@ -118,6 +123,9 @@ public class Controls : MonoBehaviour
         _slamAction.performed += OnSlamInputRecieved;
         _slamAction.canceled += OnSlamInputRecieved;
         _teleportAction.performed += OnTeleportInputRecieved;
+
+        _groundAngleLimit = 90 - _wallAngleLimit;
+
     }
 
    
@@ -128,8 +136,16 @@ public class Controls : MonoBehaviour
 
         if (_onGround)
         {
-            if(!_isDashing && !_isSliding)
+            if (!_isDashing && !_isSliding)
+            {
                 _rigidbody.velocity = new Vector3(_wantedDir.x * MoveSpeed * Time.fixedDeltaTime, _rigidbody.velocity.y, _wantedDir.z * MoveSpeed * Time.fixedDeltaTime);
+            }
+            if (_isSliding) 
+            {
+                _slideDirection = Vector3.ProjectOnPlane(_slideDirection, _groundNormal);
+                _rigidbody.velocity = _slideDirection * MoveSpeed * SlideSpeedMultiplier * Time.fixedDeltaTime;
+            }
+
         }
         else if(!_onGround && !_isWallRunning)
         {
@@ -223,7 +239,6 @@ public class Controls : MonoBehaviour
                 _isDashing = false;
             }
         }
-        _viewDot = Vector3.Dot(_cameraTransform.forward, Vector3.up);
     }
     void OnMoveInputRecieved(InputAction.CallbackContext context)
     {
@@ -373,16 +388,17 @@ public class Controls : MonoBehaviour
 
     void Slide() 
     {
-        Vector3 slideDirection = Vector3.zero;
+        _slideDirection = Vector3.zero;
         if (_movementDirection == Vector2.zero)
-            slideDirection = Vector3.Project(_cameraTransform.forward, transform.forward);
+            _slideDirection = Vector3.Project(_cameraTransform.forward, transform.forward);
         else
-            slideDirection = _wantedDir.normalized;
+            _slideDirection = _wantedDir.normalized;
 
 
-        slideDirection.Normalize();
+        _slideDirection.Normalize();
+        _slideDirection = Vector3.ProjectOnPlane(_slideDirection, _groundNormal);
         // bring the player closer to the ground and bump move speed
-        _rigidbody.velocity = slideDirection * MoveSpeed * SlideSpeedMultiplier * Time.fixedDeltaTime;
+        _rigidbody.velocity = _slideDirection * MoveSpeed * SlideSpeedMultiplier * Time.fixedDeltaTime;
         _isSliding = true;
 
         //rotate the player to be closer to the ground based on the forward direction the body is facing
@@ -503,14 +519,15 @@ public class Controls : MonoBehaviour
             // Check if the contact point is below the player
             foreach (ContactPoint contact in collision.contacts)
             {
-
-                if (Vector3.Dot(contact.normal, Vector3.up) > 0.8f)
+                float radians = Mathf.Cos(_groundAngleLimit * Mathf.Deg2Rad);
+                if (Vector3.Dot(contact.normal, Vector3.up) > radians)
                 {
                     _onGround = true;
                     _isSlamming = false;
+                    _groundNormal = contact.normal;
                 }
                 // check if the object is perpendicular to the player
-                if (WallCheck(_wallAngleLimit, _wallNormal))
+                if (WallCheck(_wallAngleLimit, contact.normal))
                 {
                     BoxCollider box = collision.collider as BoxCollider;
                     if (!box)
@@ -552,10 +569,11 @@ public class Controls : MonoBehaviour
             // Check if the contact point is below the player
             foreach (ContactPoint contact in collision.contacts)
             {
-
-                if (Vector3.Dot(contact.normal, Vector3.up) > 0.8f)
+                float radians = Mathf.Cos(_groundAngleLimit * Mathf.Deg2Rad);
+                if (Vector3.Dot(contact.normal, Vector3.up) > radians)
                 {
                     _onGround = true;
+                    _groundNormal = contact.normal;
                     _isSlamming = false;
                 }
                 // check if the object is perpendicular to the player
@@ -641,12 +659,13 @@ public class Controls : MonoBehaviour
 
         return false;
     }
+
     private void OnDrawGizmos()
     {
         Gizmos.color = Color.yellow;
-        Vector3 teleportPosition = Vector3.zero;
-        teleportPosition = transform.position + _cameraTransform.forward * TeleportDistance;
+        Vector3 teleportPosition = transform.position + _cameraTransform.forward * TeleportDistance;
         Gizmos.DrawSphere(teleportPosition, 0.1f);
+
     }
 
 }

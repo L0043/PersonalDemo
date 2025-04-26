@@ -95,6 +95,9 @@ MonoBehaviour:
   DownwardTeleportVelocityReduction: 0.1
   _downTeleportReductionThreshold: 60
   _cameraTransform: {fileID: 5986227530320786860}
+  _groundLayerMask:
+    serializedVersion: 2
+    m_Bits: 9
 --- !u!114 &9109668536524941434
 MonoBehaviour:
   m_ObjectHideFlags: 0
