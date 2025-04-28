@@ -81,7 +81,7 @@ MonoBehaviour:
   _rigidbody: {fileID: 5269864668792151191}
   _collider: {fileID: 2481358059553735645}
   MoveSpeed: 1000
-  AirMoveSpeed: 10000
+  AirMoveSpeed: 1500
   Sensitivity: 0.25
   JumpForce: 5000
   _wallAngleLimit: 30

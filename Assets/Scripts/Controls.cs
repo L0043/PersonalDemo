@@ -138,12 +138,14 @@ public class Controls : MonoBehaviour
         {
             if (!_isDashing && !_isSliding)
             {
-                _rigidbody.velocity = new Vector3(_wantedDir.x * MoveSpeed * Time.fixedDeltaTime, _rigidbody.velocity.y, _wantedDir.z * MoveSpeed * Time.fixedDeltaTime);
+                Vector3 vel = _wantedDir * MoveSpeed * Time.fixedDeltaTime;
+                _rigidbody.velocity = new Vector3(vel.x, _rigidbody.velocity.y, vel.z);
             }
             if (_isSliding) 
             {
                 _slideDirection = Vector3.ProjectOnPlane(_slideDirection, _groundNormal);
-                _rigidbody.velocity = _slideDirection * MoveSpeed * SlideSpeedMultiplier * Time.fixedDeltaTime;
+                Vector3 vel = _slideDirection * MoveSpeed * SlideSpeedMultiplier * Time.fixedDeltaTime;
+                _rigidbody.velocity = new Vector3(vel.x, _rigidbody.velocity.y, vel.z);
             }
 
         }
@@ -216,6 +218,11 @@ public class Controls : MonoBehaviour
         {
             // Call the moveinput received function
             _movementDirection = _moveAction.ReadValue<Vector2>();
+        }
+
+        if(_slamAction.IsInProgress() && _onGround && !_isSlamming && !_isSliding)
+        {
+            Slide();
         }
 
         // increase the players drag if they are not moving on a wall
@@ -360,9 +367,9 @@ public class Controls : MonoBehaviour
 
         if (context.performed || context.started)
         {
-            if (!_onGround && !_isSliding)
+            if (!_onGround && !_isSliding && !_isSlamming)
                 Slam();
-            else if(!_isSliding)
+            else if(!_isSliding && _onGround)
                 Slide();
         }
         else if (context.canceled)
@@ -658,6 +665,11 @@ public class Controls : MonoBehaviour
             return true;
 
         return false;
+    }
+
+    public void StopSlam() 
+    {
+        _isSlamming = false;
     }
 
     private void OnDrawGizmos()
