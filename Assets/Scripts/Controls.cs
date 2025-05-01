@@ -15,7 +15,7 @@ using UnityEngine.InputSystem;
  * sliding into jump is inconsistent
  * velocity gets lost constantly, improve the retention
 */
-
+// If the player jumps within 0.5 seconds of touching the ground, they retain their velocity
 [RequireComponent(typeof(Rigidbody)), RequireComponent(typeof(PlayerInput))]
 public class Controls : MonoBehaviour
 {
@@ -73,6 +73,7 @@ public class Controls : MonoBehaviour
     Vector3 _airDirection = new Vector3();
     Vector3 _wallNormal = new Vector3();
     Vector3 _groundNormal = new Vector3();
+    Vector3 _retainedVelocity = new Vector3();
 
     InputAction _aimAction;
     InputAction _moveAction;
@@ -139,13 +140,15 @@ public class Controls : MonoBehaviour
             if (!_isDashing && !_isSliding)
             {
                 Vector3 vel = _wantedDir * MoveSpeed * Time.fixedDeltaTime;
-                _rigidbody.velocity = new Vector3(vel.x, _rigidbody.velocity.y, vel.z);
+                vel.y = _rigidbody.velocity.y;
+                _rigidbody.velocity = vel;
             }
             if (_isSliding) 
             {
                 _slideDirection = Vector3.ProjectOnPlane(_slideDirection, _groundNormal);
                 Vector3 vel = _slideDirection * MoveSpeed * SlideSpeedMultiplier * Time.fixedDeltaTime;
-                _rigidbody.velocity = new Vector3(vel.x, _rigidbody.velocity.y, vel.z);
+                vel.y = _rigidbody.velocity.y;
+                _rigidbody.velocity = vel;
             }
 
         }
@@ -185,8 +188,11 @@ public class Controls : MonoBehaviour
             if (!_isDashing && !_isSliding) 
             {
                 Vector3 newDirection = Vector3.ProjectOnPlane(_wantedDir, _wallNormal);
+                newDirection *= MoveSpeed * Time.fixedDeltaTime;
+                newDirection += _retainedVelocity;
+                newDirection.y = _rigidbody.velocity.y;
                 // on the wall the player should not fall and the y velocity should be 0, keep the current x and z velocity
-                _rigidbody.velocity = new Vector3(newDirection.x * MoveSpeed * Time.fixedDeltaTime, _rigidbody.velocity.y, newDirection.z * MoveSpeed * Time.fixedDeltaTime);
+                _rigidbody.velocity = newDirection;
             }
         }
     }
@@ -532,6 +538,7 @@ public class Controls : MonoBehaviour
                     _onGround = true;
                     _isSlamming = false;
                     _groundNormal = contact.normal;
+                    _retainedVelocity = _rigidbody.velocity;
                 }
                 // check if the object is perpendicular to the player
                 if (WallCheck(_wallAngleLimit, contact.normal))
@@ -540,6 +547,7 @@ public class Controls : MonoBehaviour
                     if (!box)
                         return;
                     _onWall = true;
+                    _retainedVelocity = _rigidbody.velocity;
                     if (_wallRunAction.phase == InputActionPhase.Performed && _onGround == false)
                     {
                         _isWallRunning = true;
