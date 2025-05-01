@@ -5,12 +5,12 @@ using UnityEngine.UI;
 
 public class OptionsMenu : MonoBehaviour
 {
-    [SerializeField] Button _backButton;
+
 
     // Start is called before the first frame update
     void Start()
     {
-        _backButton.onClick.AddListener(UIManager.Instance.ToggleOptions);
+
     }
 
     // Update is called once per frame

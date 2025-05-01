@@ -43,7 +43,7 @@ public class UIManager : MonoBehaviour
     public void TogglePauseMenu() 
     {
         // if the pause menu is closed, open it and change the input map to UI
-        if (!_pauseMenu.activeSelf)
+        if (!_pauseMenu.activeSelf && _openPanels <= 0)
         {
             ++_openPanels;
             _playerInput.SwitchCurrentActionMap("UI");
@@ -133,18 +133,30 @@ public class UIManager : MonoBehaviour
         }
     }
 
+    //disable the current panel, go into the panel stack and turn on the next one in the list
+    public void PopPanel() 
+    {
+        --_openPanels;
+        var go = _openPanelsStack.Pop();
+        if (go)
+            go.SetActive(false);
+        var go2 = _openPanelsStack.Peek();
+        if (go2)
+            go2.SetActive(true);
+    }
+
     // this shouldnt be needed as every panel will be blocking the other buttons from being pressed
     // the only way to open a new panel will be to close the active one and open the pause menu
-    void DisableOtherPanels(GameObject activePanel) 
-    {
-        foreach (var panel in _openPanelsStack)
-        {
-            if (panel == activePanel)
-                panel.SetActive(true);
-            else
-                panel.SetActive(false);
-        }
-    }
+    //void DisableOtherPanels(GameObject activePanel) 
+    //{
+    //    foreach (var panel in _openPanelsStack)
+    //    {
+    //        if (panel == activePanel)
+    //            panel.SetActive(true);
+    //        else
+    //            panel.SetActive(false);
+    //    }
+    //}
 
     // technically I could use this, but what would the point be for a project of this size?
     //void TogglePanel(GameObject panel) 

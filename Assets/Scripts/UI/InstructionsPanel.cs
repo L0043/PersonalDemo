@@ -5,10 +5,9 @@ using UnityEngine.UI;
 
 public class InstructionsPanel : MonoBehaviour
 {
-    [SerializeField] Button _backButton;
     // Start is called before the first frame update
     void Start()
     {
-        _backButton.onClick.AddListener(UIManager.Instance.ToggleInstructions);
+
     }
 }
