@@ -152,7 +152,7 @@ public class Controls : MonoBehaviour
             }
 
         }
-        else if(!_onGround && !_isWallRunning)
+        else if(!_onGround && !_isWallRunning && !_isSlamming)
         {
             Vector3 movementDirection = new Vector3(_wantedDir.x * MoveSpeed * Time.fixedDeltaTime, _rigidbody.velocity.y, _wantedDir.z * MoveSpeed * Time.fixedDeltaTime);
             _airDirection.y = 0f;
