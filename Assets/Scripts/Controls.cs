@@ -300,16 +300,16 @@ public class Controls : MonoBehaviour
                 zeroedVel.y = 0f;
                 _rigidbody.velocity = zeroedVel;
             }
-
+            _rigidbody.AddForce(Vector3.up * JumpForce * 1.25f);
             // if the camera is looking 45 degrees >= above the horizontal plane, jump in the direction of the camera
-            if (dot >= 0.7f)
-            {
-                _rigidbody.AddForce(_cameraTransform.forward * JumpForce * 1.25f);
-            }
-            else
-            {
-                _rigidbody.AddForce(Vector3.up * JumpForce * 1.25f);
-            }
+            //if (dot >= 0.7f)
+            //{
+            //    _rigidbody.AddForce(_cameraTransform.forward * JumpForce * 1.25f);
+            //}
+            //else
+            //{
+            //    _rigidbody.AddForce(Vector3.up * JumpForce * 1.25f);
+            //}
         }
         else
         {
