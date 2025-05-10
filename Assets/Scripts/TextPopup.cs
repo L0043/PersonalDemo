@@ -1,21 +1,25 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using TMPro;
+using Unity.VisualScripting;
 using UnityEngine;
+using UnityEngine.InputSystem;
+using static UnityEngine.InputSystem.InputBinding;
 // custom class to hold the text style for the editor script
 [Serializable]
 public class CustomTextStyle
 {
-    public FontStyle fontStyle = FontStyle.Normal;
-    public int fontSize = 14;
-    public Color textColor = Color.black;
-    public TextAnchor alignment = TextAnchor.UpperLeft;
-    public bool wordWrap = false;
-    public bool richText = false;
-    public bool stretchWidth = false;
-    public bool stretchHeight = false;
-    public TextClipping clipping = TextClipping.Overflow;
-    public Font font = null;
+    public FontStyle FontStyle = FontStyle.Normal;
+    public int FontSize = 14;
+    public Color TextColor = Color.black;
+    public TextAlignmentOptions Alignment = TextAlignmentOptions.TopLeft;
+    public bool WordWrap = false;
+    public bool RichText = false;
+    public bool StretchWidth = false;
+    public bool StretchHeight = false;
+    public TextClipping Clipping = TextClipping.Overflow;
+    public Font Font = null;
 }
 
 
@@ -28,6 +32,9 @@ public class TextPopup : MonoBehaviour
     public BoxCollider Collider;
     public Color KeyTextColour = new Color();
     public CustomTextStyle TextStyle = new CustomTextStyle();
+
+    // TODO: Add a way to have the input actions display their current bindings in the text
+
     // Start is called before the first frame update
     void Start()
     {
@@ -35,13 +42,12 @@ public class TextPopup : MonoBehaviour
             Collider = GetComponent<BoxCollider>();
 
         Collider.isTrigger = true;
-
     }
 
 #if UNITY_EDITOR
     private void OnValidate()
     {
-        string startTag = "<color=#" + ColorUtility.ToHtmlStringRGB(TextStyle.textColor) + ">";
+        string startTag = "<color=#" + UnityEngine.ColorUtility.ToHtmlStringRGB(TextStyle.TextColor) + ">";
         string endTag = "</color>";
 
         if (!Text.StartsWith(startTag))
@@ -61,7 +67,7 @@ public class TextPopup : MonoBehaviour
         if (other.gameObject != GameManager.Instance.Player)
             return;
         if(!_hasDisplayed)
-            TutorialManager.Instance.DisplayText(Text, Duration);
+            TutorialManager.Instance.DisplayText(Text, Duration, TextStyle);
         _hasDisplayed = true;
         //maybe we want to destroy the object at this point, depends on which is more performant
         //Destroy(gameObject);

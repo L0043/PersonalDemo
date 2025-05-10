@@ -5,9 +5,11 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Text;
+using TMPro;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
+using UnityEngine.InputSystem;
 using UnityEngine.TextCore.Text;
 
 
@@ -29,6 +31,8 @@ public class Editor_TextPopup : Editor
         // show the duration and collider and allow them to be modified
         _textPopup.Duration = EditorGUILayout.FloatField("Duration", _textPopup.Duration);
         _textPopup.Collider = (BoxCollider)EditorGUILayout.ObjectField("Collider", _textPopup.Collider, typeof(BoxCollider), true);
+        // show the input action and let users modify it
+        //_textPopup.InputAction = (InputActionReference)EditorGUILayout.ObjectField("Input Action", _textPopup.InputAction, typeof(InputActionReference), true);
 
 
         // a field to edit the text
@@ -36,34 +40,34 @@ public class Editor_TextPopup : Editor
 
         EditorGUI.BeginChangeCheck();
 
-        _textPopup.TextStyle.fontStyle = (FontStyle)GUILayout.Toolbar((int)_textPopup.TextStyle.fontStyle, new string[] { "Normal", "Bold", "Italic", "Bold and Italic" });
-        _textPopup.TextStyle.fontSize = EditorGUILayout.IntField("Font Size", _textPopup.TextStyle.fontSize);
+        _textPopup.TextStyle.FontStyle = (FontStyle)GUILayout.Toolbar((int)_textPopup.TextStyle.FontStyle, new string[] { "Normal", "Bold", "Italic", "Bold and Italic" });
+        _textPopup.TextStyle.FontSize = EditorGUILayout.IntField("Font Size", _textPopup.TextStyle.FontSize);
 
-        _textPopup.TextStyle.textColor = EditorGUILayout.ColorField("Text Colour", _textPopup.TextStyle.textColor);
+        _textPopup.TextStyle.TextColor = EditorGUILayout.ColorField("Text Colour", _textPopup.TextStyle.TextColor);
         _textPopup.KeyTextColour = EditorGUILayout.ColorField("Key Text Colour", _textPopup.KeyTextColour);
 
-        _textPopup.TextStyle.alignment = (TextAnchor)EditorGUILayout.EnumPopup("Text Alignment", _textPopup.TextStyle.alignment);
-        _textPopup.TextStyle.wordWrap = EditorGUILayout.Toggle("Word Wrap", _textPopup.TextStyle.wordWrap);
-        _textPopup.TextStyle.richText = EditorGUILayout.Toggle("Rich Text", _textPopup.TextStyle.richText);
-        _textPopup.TextStyle.stretchWidth = EditorGUILayout.Toggle("Stretch Width", _textPopup.TextStyle.stretchWidth);
-        _textPopup.TextStyle.stretchHeight = EditorGUILayout.Toggle("Stretch Height", _textPopup.TextStyle.stretchHeight);
-        _textPopup.TextStyle.clipping = (TextClipping)EditorGUILayout.EnumPopup("Text Clipping", _textPopup.TextStyle.clipping);
-        _textPopup.TextStyle.font = (Font)EditorGUILayout.ObjectField("Font", _textPopup.TextStyle.font, typeof(Font), true);
+        _textPopup.TextStyle.Alignment = (TextAlignmentOptions)EditorGUILayout.EnumPopup("Text Alignment", _textPopup.TextStyle.Alignment);
+        _textPopup.TextStyle.WordWrap = EditorGUILayout.Toggle("Word Wrap", _textPopup.TextStyle.WordWrap);
+        _textPopup.TextStyle.RichText = EditorGUILayout.Toggle("Rich Text", _textPopup.TextStyle.RichText);
+        _textPopup.TextStyle.StretchWidth = EditorGUILayout.Toggle("Stretch Width", _textPopup.TextStyle.StretchWidth);
+        _textPopup.TextStyle.StretchHeight = EditorGUILayout.Toggle("Stretch Height", _textPopup.TextStyle.StretchHeight);
+        _textPopup.TextStyle.Clipping = (TextClipping)EditorGUILayout.EnumPopup("Text Clipping", _textPopup.TextStyle.Clipping);
+        _textPopup.TextStyle.Font = (Font)EditorGUILayout.ObjectField("Font", _textPopup.TextStyle.Font, typeof(Font), true);
 
         _style.normal.background = Texture2D.linearGrayTexture;
         _style.padding = new RectOffset(15, 15, 15, 15); // set padding to 15 on all sides
 
         // set the style to the text popup
-        _style.fontStyle = _textPopup.TextStyle.fontStyle;
-        _style.fontSize = _textPopup.TextStyle.fontSize;
-        _style.normal.textColor = _textPopup.TextStyle.textColor;
-        _style.alignment = _textPopup.TextStyle.alignment;
-        _style.wordWrap = _textPopup.TextStyle.wordWrap;
-        _style.richText = _textPopup.TextStyle.richText;
-        _style.stretchWidth = _textPopup.TextStyle.stretchWidth;
-        _style.stretchHeight = _textPopup.TextStyle.stretchHeight;
-        _style.clipping = _textPopup.TextStyle.clipping;
-        _style.font = _textPopup.TextStyle.font;
+        _style.fontStyle = _textPopup.TextStyle.FontStyle;
+        _style.fontSize = _textPopup.TextStyle.FontSize;
+        _style.normal.textColor = _textPopup.TextStyle.TextColor;
+        _style.alignment = (TextAnchor)_textPopup.TextStyle.Alignment;
+        _style.wordWrap = _textPopup.TextStyle.WordWrap;
+        _style.richText = _textPopup.TextStyle.RichText;
+        _style.stretchWidth = _textPopup.TextStyle.StretchWidth;
+        _style.stretchHeight = _textPopup.TextStyle.StretchHeight;
+        _style.clipping = _textPopup.TextStyle.Clipping;
+        _style.font = _textPopup.TextStyle.Font;
 
         if (EditorGUI.EndChangeCheck())
         {
@@ -82,7 +86,7 @@ public class Editor_TextPopup : Editor
         };
         EditorGUI.BeginChangeCheck();
 
-        GUILayout.Label("Text Field: to mark key words, put a - on either side of the text", labelOption);
+        GUILayout.Label("Text Field: to mark key words, put a - on either side of the text\nTo insert input actions put an * in the text", labelOption);
         GUILayoutOption[] options = { GUILayout.ExpandWidth(true), GUILayout.MaxHeight(400) };
         _textPopup.Text = EditorGUILayout.TextArea(_textPopup.Text, options);
 
@@ -125,10 +129,6 @@ public class Editor_TextPopup : Editor
                 _textPopup.Text = newText;
             }
         }
-        
-
-
-
 
         if (GUILayout.Button("Reset"))
         {

@@ -28,9 +28,20 @@ public class TutorialManager : MonoBehaviour
         }
     }
 
-    public void DisplayText(string text, float duration) 
+    public void DisplayText(string text, float duration, CustomTextStyle textStyle) 
     {
         _textPanel.alpha = 1f;
+
+        _text.alignment = (TextAlignmentOptions)textStyle.Alignment;
+        _text.fontSize = textStyle.FontSize;
+        _text.fontStyle = (FontStyles)textStyle.FontStyle;
+        _text.color = textStyle.TextColor;
+        _text.richText = textStyle.RichText;
+        _text.enableWordWrapping = textStyle.WordWrap;
+
+
+
+
         _text.text = text;
         StopAllCoroutines();
         StartCoroutine(HideText(duration));
@@ -39,7 +50,10 @@ public class TutorialManager : MonoBehaviour
     IEnumerator HideText(float duration) 
     {
         if (duration > FadeDelay)
+        {
+            duration -= FadeDelay;
             yield return new WaitForSeconds(FadeDelay);
+        }
 
         float startAlpha = _textPanel.alpha;
         float endAlpha = 0f;
