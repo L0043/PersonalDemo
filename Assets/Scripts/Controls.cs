@@ -38,11 +38,16 @@ public class Controls : MonoBehaviour
     [Space]
     [Header("Dash")]
     public float DashForce = 10f;
-    public float DashCooldown = 1f;
+    //DashCooldown is the time the player has to wait before being allowed to dash again
+    public float DashCooldown { get; private set; } = 1f;
+    float _dashCooldownTimer = 0.0f;
+    // DashTime is the time in the players inputs will be ignored for to allow for dashing on the ground
+    // and in the air, this is also the time the player will be dashing for, this can be used for invulnerability frames if enemies are added
+    // The reason for its existance is due to the on ground movement constantly setting the players velocity to allow for snappy movement on the ground.
+    // this however, prevented the dash from working on the ground as the velocity was constantly being set to 0.
     public float DashTime = 2f;
     float _dashTimer = 0.0f;
-    float _dashCooldownTimer = 0.0f;
-    bool _isDashing;
+    bool _isDashing = false;
 
     [Space]
     [Header("Slam")]
@@ -152,7 +157,7 @@ public class Controls : MonoBehaviour
             }
 
         }
-        else if(!_onGround && !_isWallRunning && !_isSlamming)
+        else if(!_onGround && !_isWallRunning && !_isSlamming && !_isSliding)
         {
             Vector3 movementDirection = new Vector3(_wantedDir.x * MoveSpeed * Time.fixedDeltaTime, _rigidbody.velocity.y, _wantedDir.z * MoveSpeed * Time.fixedDeltaTime);
             _airDirection.y = 0f;
@@ -270,7 +275,7 @@ public class Controls : MonoBehaviour
     {
         if (!_onGround && !_onWall)
             return;
-        if (_onWall && !_wallJumpAvailable)
+        if (_onWall && !_wallJumpAvailable && !_onGround)
             return;
 
         // Handle jump input
@@ -362,6 +367,8 @@ public class Controls : MonoBehaviour
         _dashCooldownTimer = DashCooldown;
         _isDashing = true;
         _dashTimer = DashTime;
+
+        EventManager.OnDash.Invoke();
     }
 
     void OnSlamInputRecieved(InputAction.CallbackContext context)
@@ -438,9 +445,11 @@ public class Controls : MonoBehaviour
     // teleport through the object, if the point will be inside the object, teleport to the nearest point on the outside of the object
     // NOTE: FOR VFX, THE Object could be made transparent while the player is trying to teleport and to point at which they are teleporting to is shown
     // The teleport will need to be changed to a press and hold system, probably using tap, on start reduce the timescale and release, bring back to 1
+    // ADDITIONAL NOTE: If the player teleports through a wall and the point they are meant to go to is on the other side of a non teleportable wall, they will reach that point
+    // this will cause the player to be able to clip out of bounds extremely easily, this will need to be fixed.
     void Teleport()
     {
-
+        EventManager.OnTeleport.Invoke();
         _teleportTimer = TeleportCooldown;
         _isSlamming = false;
 

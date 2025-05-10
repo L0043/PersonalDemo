@@ -2,17 +2,31 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.UI;
 
 public class UIManager : MonoBehaviour
 {
     int _openPanels = 0;
     public static UIManager Instance { get; private set; }
 
-    [SerializeField] GameObject _pauseMenu;
-    [SerializeField] GameObject _optionsMenu;
-    [SerializeField] GameObject _instructionsMenu;
-    [SerializeField] GameObject _quitMenu;
+    [Header("Pause Menu Objects")]
+        [SerializeField] GameObject _pauseMenu;
+        [SerializeField] GameObject _optionsMenu;
+        [SerializeField] GameObject _instructionsMenu;
+        [SerializeField] GameObject _quitMenu;
+    [Space]
+    [Header("HUD")]
+    [SerializeField] Image _dashIcon;
+    bool _isDashOnCooldown = false;
+    float _dashFillTime = 0f;
+    [SerializeField] Image _teleportIcon;
+    bool _isTeleportOnCooldown = false;
+    float _teleportFillTime = 0f;
+
+
+
     PlayerInput _playerInput;
+    Controls _controls;
 
     Stack<GameObject> _openPanelsStack = new Stack<GameObject>();
 
@@ -32,12 +46,61 @@ public class UIManager : MonoBehaviour
     private void Start()
     {
         _playerInput = GameManager.Instance.Player.GetComponent<PlayerInput>();
+        _controls = GameManager.Instance.Player.GetComponent<Controls>();
 
         if (!_playerInput)
             return;
         _playerInput.actions["Pause"].performed += ctx => TogglePauseMenu();
         _playerInput.actions["Cancel"].performed += ctx => TogglePauseMenu();
 
+        EventManager.OnDash.AddListener(RefreshDashIcon);
+        EventManager.OnTeleport.AddListener(RefreshTeleportIcon);
+
+    }
+
+    private void Update()
+    {
+        if (_isDashOnCooldown) 
+        {
+            if (_dashFillTime >= _controls.DashCooldown)
+            {
+                _isDashOnCooldown = false;
+                _dashIcon.fillAmount = 1f;
+            }
+            else 
+            {
+                _dashFillTime += Time.deltaTime;
+                _dashIcon.fillAmount = _dashFillTime / _controls.DashCooldown;
+            }
+        }
+
+        if (_isTeleportOnCooldown) 
+        {
+            if (_teleportFillTime >= _controls.TeleportCooldown)
+            {
+                _isTeleportOnCooldown = false;
+                _teleportIcon.fillAmount = 1f;
+            }
+            else
+            {
+                _teleportFillTime += Time.deltaTime;
+                _teleportIcon.fillAmount = _teleportFillTime / _controls.TeleportCooldown;
+            }
+        }
+    }
+
+    void RefreshDashIcon() 
+    {
+        _dashIcon.fillAmount = 0f;
+        _dashFillTime = 0f;
+        _isDashOnCooldown = true;
+    }
+
+    void RefreshTeleportIcon()
+    {
+        _teleportIcon.fillAmount = 0f;
+        _teleportFillTime = 0f;
+        _isTeleportOnCooldown = true;
     }
 
     public void TogglePauseMenu() 

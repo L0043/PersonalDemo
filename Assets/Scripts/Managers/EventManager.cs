@@ -5,16 +5,11 @@ using UnityEngine.Events;
 
 public class EventManager : MonoBehaviour
 {
+    
+    
     public static UnityEvent PlayerPrefsUpdated = new();
-    // Start is called before the first frame update
-    void Start()
-    {
-        
-    }
+    public static UnityEvent OnDash = new();
+    public static UnityEvent OnTeleport = new();
 
-    // Update is called once per frame
-    void Update()
-    {
-        
-    }
+
 }
