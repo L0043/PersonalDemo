@@ -80,7 +80,10 @@ public class GameManager : MonoBehaviour
 
     }
 
-
+    public void ResetPlayerPosition() 
+    {
+        _playerControls.ResetPosition();
+    }
     public void TogglePause() 
     {
         // if the time scale is 1, set it to 0, otherwise set it to 1

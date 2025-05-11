@@ -78,6 +78,7 @@ public class Controls : MonoBehaviour
     Vector3 _wallNormal = new Vector3();
     Vector3 _groundNormal = new Vector3();
     Vector3 _retainedVelocity = new Vector3();
+    Vector3 _storedPosition = new Vector3();
 
     InputAction _aimAction;
     InputAction _moveAction;
@@ -89,6 +90,8 @@ public class Controls : MonoBehaviour
 
     float _viewPitch = 0.0f;
     float _viewYaw = 0.0f;
+    float _positionStoreTimer = 0.0f;
+    [SerializeField] float _positionStoreTime = 0.1f;
     bool _onGround = false;
     bool _isWallRunning = false;
     [SerializeField] LayerMask _groundLayerMask = new LayerMask();
@@ -256,6 +259,18 @@ public class Controls : MonoBehaviour
                 _isDashing = false;
             }
         }
+        if (_onGround)
+        {
+            _positionStoreTimer += Time.deltaTime;
+            if (_positionStoreTimer >= _positionStoreTime)
+            {
+                _storedPosition = transform.position;
+                _positionStoreTimer = 0f;
+            }
+        }
+        else
+            _positionStoreTimer = 0.0f;
+
     }
     void OnMoveInputRecieved(InputAction.CallbackContext context)
     {
@@ -686,6 +701,12 @@ public class Controls : MonoBehaviour
     public void StopSlam() 
     {
         _isSlamming = false;
+    }
+
+    public void ResetPosition() 
+    {
+        _rigidbody.velocity = Vector3.zero;
+        transform.position = _storedPosition;
     }
 
     private void OnDrawGizmos()
