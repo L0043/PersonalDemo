@@ -39,6 +39,13 @@ public class TutorialManager : MonoBehaviour
         _text.richText = textStyle.RichText;
         _text.enableWordWrapping = textStyle.WordWrap;
 
+        if (text.Contains('*')) 
+        {
+            // replace the * with the input action binding
+            var binds = textStyle.InputActionReference.action.bindings.ToArray();
+            var control = textStyle.InputActionReference.action.activeControl;
+            text = text.Replace("*", textStyle.InputActionReference.action.ToString());
+        }
 
 
 

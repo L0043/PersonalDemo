@@ -20,6 +20,7 @@ public class CustomTextStyle
     public bool StretchHeight = false;
     public TextClipping Clipping = TextClipping.Overflow;
     public Font Font = null;
+    public InputActionReference InputActionReference = null;
 }
 
 

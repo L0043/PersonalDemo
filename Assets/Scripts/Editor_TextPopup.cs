@@ -40,12 +40,15 @@ public class Editor_TextPopup : Editor
 
         EditorGUI.BeginChangeCheck();
 
+        _textPopup.TextStyle.InputActionReference = (InputActionReference)EditorGUILayout.ObjectField("Input Action", 
+            _textPopup.TextStyle.InputActionReference, typeof(InputActionReference), true);
+        // Font Info
         _textPopup.TextStyle.FontStyle = (FontStyle)GUILayout.Toolbar((int)_textPopup.TextStyle.FontStyle, new string[] { "Normal", "Bold", "Italic", "Bold and Italic" });
         _textPopup.TextStyle.FontSize = EditorGUILayout.IntField("Font Size", _textPopup.TextStyle.FontSize);
-
+        // Colors
         _textPopup.TextStyle.TextColor = EditorGUILayout.ColorField("Text Colour", _textPopup.TextStyle.TextColor);
         _textPopup.KeyTextColour = EditorGUILayout.ColorField("Key Text Colour", _textPopup.KeyTextColour);
-
+        // Position and Formatting
         _textPopup.TextStyle.Alignment = (TextAlignmentOptions)EditorGUILayout.EnumPopup("Text Alignment", _textPopup.TextStyle.Alignment);
         _textPopup.TextStyle.WordWrap = EditorGUILayout.Toggle("Word Wrap", _textPopup.TextStyle.WordWrap);
         _textPopup.TextStyle.RichText = EditorGUILayout.Toggle("Rich Text", _textPopup.TextStyle.RichText);

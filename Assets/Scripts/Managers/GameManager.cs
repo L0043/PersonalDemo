@@ -1,12 +1,17 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.InputSystem;
+using UnityEngine.InputSystem.Users;
+
 
 public class GameManager : MonoBehaviour
 {
+    
+    public InputDevice ActiveInputDevice { get; private set; }
+    PlayerInput _playerInput;
     public GameObject Player { get; private set; }
     Controls _playerControls;
-
     public static GameManager Instance { get; private set; }
     private void Awake()
     {
@@ -28,11 +33,30 @@ public class GameManager : MonoBehaviour
                 Debug.LogError("Player not found in the scene.");
             }
             _playerControls = Player.GetComponent<Controls>();
+            _playerInput = Player.GetComponent<PlayerInput>();
         }
 
         EventManager.PlayerPrefsUpdated.AddListener(UpdatePlayerPrefs);
         UpdatePlayerPrefs();
+        //_playerInput.controlsChangedEvent.AddListener(UpdateActiveDevice);
+        UpdateActiveDevice(_playerInput);
+        
+    }
 
+    void UpdateActiveDevice(PlayerInput playerInput) 
+    {
+        if(playerInput.currentControlScheme == "Keyboard&Mouse")
+        {
+            ActiveInputDevice = Keyboard.current;
+        }
+        else if (playerInput.currentControlScheme == "Gamepad")
+        {
+            ActiveInputDevice = Gamepad.current;
+        }
+        else
+        {
+            Debug.LogError("Unknown control scheme.");
+        }
     }
 
     void UpdatePlayerPrefs() 
@@ -103,6 +127,13 @@ public class GameManager : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
-        
+        // unfortunately, unity's input system does not appear to have an event
+        // that can inform me when the device has changed, unless I destroy my performance.
+        // because of this, I will be perpetually checking if the active device has changed
+    }
+
+    public PlayerInput GetPlayerInput() 
+    {
+        return _playerInput;
     }
 }

@@ -1,3 +1,4 @@
+using JetBrains.Annotations;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -5,6 +6,8 @@ using System.Diagnostics.Contracts;
 using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.InputSystem.HID;
+using UnityEngine.UI;
 
 // TO FIX:
 /*
@@ -133,9 +136,14 @@ public class Controls : MonoBehaviour
         _teleportAction.performed += OnTeleportInputRecieved;
 
         _groundAngleLimit = 90 - _wallAngleLimit;
-
+        GetComponent<PlayerInput>().controlsChangedEvent.AddListener(NotifyGameManager);
     }
 
+    void NotifyGameManager(PlayerInput playerInput) 
+    {
+        int aj = 5;
+        aj += 12;
+    }
    
     void FixedUpdate()
     {
@@ -472,55 +480,122 @@ public class Controls : MonoBehaviour
 
         #region Teleport Positioning
         //do not teleport if object cannot be teleported through
-        RaycastHit hit;
-        GameObject objectHit = null;
-        Collider objectCollider = null;
+        
         // if it hits something, check if it can be teleported through
+
+        // ray cast needs to collect all objects that it will hit,
+        // if the first object is teleportable, go through it, if the second object is not teleportable, teleport to the point of impact
         var mask = LayerMask.GetMask("Environment", "Default");
-        if (Physics.Raycast(transform.position, _cameraTransform.forward, out hit, TeleportDistance, mask, QueryTriggerInteraction.Ignore))
+        var hits = Physics.RaycastAll(transform.position, _cameraTransform.forward, TeleportDistance, mask, QueryTriggerInteraction.Ignore);
+
+        // I have a hunch that the optimal way to do this would be having the teleportable objects on a seperate layer
+        // this would allow for me to check the layer bits rather than a string comparison. However, this would cause issues elsewhere
+        // as the teleportable objects would not be registered as environment objects. damn that sucks
+        if (hits.Length <= 0) 
         {
-            objectHit = hit.collider.gameObject;
-            objectCollider = objectHit.GetComponent<Collider>();
+            // no hits, teleport to the point of impact
+            transform.position = teleportPosition;
         }
-
-        if (objectHit) 
+        else 
         {
-            // check if the player can teleport through it or not
-            // if the tag is not teleportable, teleport in front of it
-            if (objectHit.CompareTag("Teleportable") == false)
-            {
-                // add radius if collision is from the side, add height if above or below
-                float dotproduct = Vector3.Dot(hit.normal, Vector3.up);
-                // if the object is above or below the player, teleport to the point of impact adding the player height
-                if (dotproduct > 0.5f || dotproduct < -0.5f)
-                    teleportPosition = hit.point + hit.normal * _collider.height / 2f;
-                // if the object is to the side of the player, teleport to the point of impact adding the player "width"
-                else
-                    // add the radius to the teleport position so the player is not inside the object
-                    teleportPosition = hit.point + hit.normal * _collider.radius;
 
-            }
-            // is tagged teleportable
-            else 
+
+            // this will loop through all the objects collected by the raycast
+            // if it finds an object that is not teleportable the loop will break and the player will be teleported to the point of impact + an offset based on their size
+            // if the object is teleportable and the position is not inside the object we continue through the list
+            // if the object is teleportable and the position is inside the object the loop will
+            // break and the player will be teleported to the point of impact + an offset based on their size
+            // granted this object should be the last object in the list, the loop break is their as a safety net
+
+            // Note: I had originally intended for the loop to continue even if the object contains the player position
+            // but thought that this could be used to make level creation easier, as I could have a solid wall with a silver of teleportable object in it
+            foreach (RaycastHit hit in hits) 
             {
-                // teleport to the outside of the object including the player collider radius so the player is not inside the object
-                if (objectCollider.bounds.Contains(teleportPosition)) 
+                // if the first object contains the player pos, it ends the loop and the player can phase through things
+
+
+                bool isTeleportable = hit.collider.CompareTag("Teleportable");
+                bool contains = hit.collider.bounds.Contains(teleportPosition);
+                // if the object is teleportable and the position is not inside the object we continue through the list
+                if (isTeleportable && contains == false)
+                    continue;
+                if(!isTeleportable) 
+                {
+                    // add radius if collision is from the side, add height if above or below
+                    float dotproduct = Vector3.Dot(hit.normal, Vector3.up);
+                    // if the object is above or below the player, teleport to the point of impact adding the player height
+                    if (dotproduct > 0.5f || dotproduct < -0.5f)
+                        teleportPosition = hit.point + hit.normal * _collider.height / 2f;
+                    // if the object is to the side of the player, teleport to the point of impact adding the player "width"
+                    else
+                        // add the radius to the teleport position so the player is not inside the object
+                        teleportPosition = hit.point + hit.normal * _collider.radius;
+                    break;
+                }
+                if(isTeleportable && contains)
                 {
                     Vector3 direction = Vector3.zero;
                     float distance = 0f;
 
                     // finds the nearest point on the outside of the collider and how far away it is, if those are found the colliders are seperated
-                    Physics.ComputePenetration(_collider, teleportPosition, transform.rotation, objectCollider,
-                        objectCollider.transform.position, objectCollider.transform.rotation, out direction, out distance);
-                    
+                    Physics.ComputePenetration(_collider, teleportPosition, transform.rotation, hit.collider,
+                        hit.collider.transform.position, hit.collider.transform.rotation, out direction, out distance);
+
                     teleportPosition += direction * distance;
-                    
-                    //// find the closest point on the outside of the collider
-                    //Vector3 newPos = objectCollider.ClosestPoint(teleportPosition);
-                    //teleportPosition = newPos;
+
+                    break;
                 }
+
             }
+
+            transform.position = teleportPosition;
+
         }
+
+        //if (Physics.Raycast(transform.position, _cameraTransform.forward, out hit, TeleportDistance, mask, QueryTriggerInteraction.Ignore))
+        //{
+        //    objectHit = hit.collider.gameObject;
+        //    objectCollider = hit.collider;
+        //}
+        //
+        //if (objectHit) 
+        //{
+        //    // check if the player can teleport through it or not
+        //    // if the tag is not teleportable, teleport in front of it
+        //    if (objectHit.CompareTag("Teleportable") == false)
+        //    {
+        //        // add radius if collision is from the side, add height if above or below
+        //        float dotproduct = Vector3.Dot(hit.normal, Vector3.up);
+        //        // if the object is above or below the player, teleport to the point of impact adding the player height
+        //        if (dotproduct > 0.5f || dotproduct < -0.5f)
+        //            teleportPosition = hit.point + hit.normal * _collider.height / 2f;
+        //        // if the object is to the side of the player, teleport to the point of impact adding the player "width"
+        //        else
+        //            // add the radius to the teleport position so the player is not inside the object
+        //            teleportPosition = hit.point + hit.normal * _collider.radius;
+        //
+        //    }
+        //    // is tagged teleportable
+        //    else 
+        //    {
+        //        // teleport to the outside of the object including the player collider radius so the player is not inside the object
+        //        if (objectCollider.bounds.Contains(teleportPosition)) 
+        //        {
+        //            Vector3 direction = Vector3.zero;
+        //            float distance = 0f;
+        //
+        //            // finds the nearest point on the outside of the collider and how far away it is, if those are found the colliders are seperated
+        //            Physics.ComputePenetration(_collider, teleportPosition, transform.rotation, objectCollider,
+        //                objectCollider.transform.position, objectCollider.transform.rotation, out direction, out distance);
+        //            
+        //            teleportPosition += direction * distance;
+        //            
+        //            //// find the closest point on the outside of the collider
+        //            //Vector3 newPos = objectCollider.ClosestPoint(teleportPosition);
+        //            //teleportPosition = newPos;
+        //        }
+        //    }
+        //}
         #endregion
 
         transform.position = teleportPosition;
