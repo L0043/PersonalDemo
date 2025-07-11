@@ -214,6 +214,9 @@ public class Controls : MonoBehaviour
 
     private void Update()
     {
+        if(transform.position.y <= -500f)
+            GameManager.Instance.ResetPlayerPosition();
+
         // CAMERA
         _viewPitch = Mathf.Clamp(_viewPitch - _lookDirection.y, -89.0f, 89.0f);
         _viewYaw += _lookDirection.x;
